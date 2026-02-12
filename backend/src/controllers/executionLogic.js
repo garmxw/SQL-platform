@@ -1,13 +1,10 @@
-import { Router } from "express";
 import { parseMySQLResult } from "../utils/parseMysqlRaw.js";
 import { parsePostgresResult } from "../utils/parsePostgresRaw.js";
 import { parseSQLiteResult } from "../utils/parsesqlite.js";
 import { validateQuery } from "../security/validateQuery.js";
 import { withTimeout } from "../executor/timeOut.js";
 
-const router = Router();
-
-router.post("/execute", async (req, res) => {
+export const executeSQL = async (req, res) => {
   const { sql, engine } = req.body;
   if (!sql || !engine) {
     console.log("not true");
@@ -66,6 +63,4 @@ router.post("/execute", async (req, res) => {
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
   }
-});
-
-export default router;
+};

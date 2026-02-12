@@ -1,7 +1,8 @@
 import express from "express";
-import executionRouter from "./routes/execution.js";
+import executionRouter from "./routes/executionRouter.js";
 import dotenv from "dotenv";
 import { db } from "./config/db.js";
+import authRouter from "./routes/authRouter.js";
 
 dotenv.config();
 
@@ -9,6 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use("/auth", authRouter);
 app.use("/api", executionRouter);
 
 const testDbConnection = async () => {
