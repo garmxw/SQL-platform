@@ -1,0 +1,67 @@
+the logic of user auth using verification code via email:
+
+logic workdlow of the VerificationCode using hmac (hash-based message authentication code):
+
+1. Code Generation: when a user signs up or requests a password reset, the server generates a random 6-digit code. This code is what the user will receive via email and will need to enter to verify their identity.
+
+2. Data Preparation: The server creates a string that includes the user ID, the generated code, and an expiry timestamp (e.g., 30 minutes from the current time). This string serves as the basis for creating the HMAC.
+
+3. HMAC Creation: The server uses a secret key (stored securely in environment variables) to create an HMAC of the prepared data string. This hash ensures that the code cannot be tampered with, as any change to the data would result in a different hash.
+
+4 Storage: After you generate the hash, code, and expiry, you need to deliver them. Usually, the code goes to their email/SMS, and the token (hash + expiry) goes to their browser as a cookie or a JSON response, the front will store them using the state
+
+1. The "State" Method (Recommended for SPAs)
+   If you are using React, Vue, or Next.js, you simply store the verificationToken in a variable after the "Send Code" API call.
+
+How it works: 1. User clicks "Send Code." 2. API returns { "verificationToken": "hash.expiry" }. 3. You save that string in a useState or ref. 4. When the user types the 6-digit code and hits "Verify," you send both pieces of data back.
+
+using this backend code:
+
+//Send the human-readable code to the email
+
+await sendEmail(userEmail, `Your code is: ${code}`);
+
+//Send the "Package" (Token) to the frontend
+//We combine the hash and expiry so the frontend can send them back later
+
+const token = `${hash}.${expiry}`;
+
+res.json({
+message: "Code sent!",
+verificationToken: token  
+ //The frontend will hold onto this
+});
+
+5. Verification: When the user submits the code they received, the server retrieves the corresponding data (user ID, code, and expiry) and recomputes the HMAC using the same secret key. The server then compares the recomputed HMAC with the one stored or sent to the client. If they match and the current time is before the expiry time, the verification is successful. If not, the verification fails, and the user may be prompted to try again or request a new code.
+
+using this backend code:
+
+// This is your POST /verify-code endpoint
+const verifyCode = (req, res) => {
+const { userEnteredCode, verificationToken, userId } = req.body;
+
+    // 1. Split the token back into Hash and Expiry
+    const [originalHash, expiry] = verificationToken.split('.');
+
+    // 2. Check if the code has expired
+    if (Date.now() > parseInt(expiry)) {
+        return res.status(400).json({ message: "Code expired!" });
+    }
+
+    // 3. Re-generate the hash using the data the user just gave us
+    const secret = process.env.VERIFICATION_SECRET;
+    const dataToVerify = `${userId}.${userEnteredCode}.${expiry}`;
+    const reconstructedHash = crypto.createHmac('sha256', secret)
+                                    .update(dataToVerify)
+                                    .digest('hex');
+
+    // 4. Compare them
+    if (reconstructedHash === originalHash) {
+        res.json({ message: "Success! User verified." });
+    } else {
+        res.status(400).json({ message: "Invalid code." });
+    }
+
+};
+
+This approach ensures that the verification code is secure and cannot be easily guessed or forged, as it relies on both the randomness of the code and the security of the HMAC, and without needing to store the code in the database, since the server can verify it using the secret key and the data provided by the client.

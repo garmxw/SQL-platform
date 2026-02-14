@@ -1,12 +1,12 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { is_user_exists, create_user } from "../services/userQueries.js";
+import { generateVerificationCode } from "../utils/generateVerificationCode.js";
+import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 
 export const signup = async (req, res) => {
-  res.send("Signup endpoint");
+  const { username, email, password } = req.body;
   try {
-    const { username, email, password } = req.body;
-
     //check if user or username exists
     const existingUser = await is_user_exists(email, username);
     if (existingUser) {
@@ -17,17 +17,19 @@ export const signup = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12); //save user to database
-    const newUser = await create_user(username, email, hashedPassword);
 
+    const newUser = await create_user(username, email, hashedPassword);
+    //create user object and token
     const user = newUser.rows[0];
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        role: user.user_role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN },
-    );
+
+    // Implement this function to generate a unique verification code
+    // it returns an object with the code, its hash, and expiry time
+    const verificationData = await generateVerificationCode(user.email);
+
+    console.log(user);
+    console.log(verificationData);
+
+    const token = generateTokenAndSetCookie(user, res);
 
     res.status(201).json({
       status: "success",
@@ -95,3 +97,9 @@ export const login = async (req, res) => {
     });
   }
 };
+
+export const logout = (req, res) => {};
+
+export const forgotPassword = (req, res) => {};
+
+export const resetPassword = (req, res) => {};

@@ -29,3 +29,10 @@ export const create_user = async (username, email, hashedPassword) => {
   const result = await db.query(query, values);
   return result;
 };
+
+export const getUserByEmail = async (email) => {
+  const query = `SELECT * FROM users WHERE email = $1`;
+  const values = [email];
+  const result = await db.query(query, values);
+  return result;
+};
