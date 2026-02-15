@@ -1,3 +1,4 @@
+PROBLEME 1:
 the logic of user auth using verification code via email:
 
 logic workdlow of the VerificationCode using hmac (hash-based message authentication code):
@@ -65,3 +66,50 @@ const { userEnteredCode, verificationToken, userId } = req.body;
 };
 
 This approach ensures that the verification code is secure and cannot be easily guessed or forged, as it relies on both the randomness of the code and the security of the HMAC, and without needing to store the code in the database, since the server can verify it using the secret key and the data provided by the client.
+
+PROBLEME 2:
+
+1. email passing by url for fixing the verification code problem:
+
+const verificationUrl = `https://vorn.com/verify?email=${encodeURIComponent(userEmail)}`;
+
+2. then in verify button in html templates:
+
+<a href="${verificationUrl}" target="\_blank" ...>Verify Account &rarr;</a>
+
+Alt (methode2) grab both email and code in url and sends them without user writing the code like bellow [maybe i will implement it later]:
+
+// Inside your sendEmail function
+const baseUrl = "https://vorn.com/verify-success";
+const signedUrl = `${baseUrl}?email=${encodeURIComponent(userEmail)}&code=${code}`;
+
+// In your HTML Template, update the button:
+// <a href="${signedUrl}" ...>Verify Account &rarr;</a>
+
+then simple script that sends the params to the api:
+
+window.onload = async () => {
+const params = new URLSearchParams(window.location.search);
+const email = params.get('email');
+const code = params.get('code');
+
+    if (email && code) {
+        // Show a "Verifying..." message to the user
+        document.getElementById('status').innerText = "Verifying your account...";
+
+        const response = await fetch('/api/verify-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, code })
+        });
+
+        const result = await response.json();
+        if (result.status === "success") {
+            document.getElementById('status').innerText = "Verified! Redirecting...";
+            setTimeout(() => window.location.href = "/dashboard", 2000);
+        } else {
+            document.getElementById('status').innerText = "Verification failed: " + result.message;
+        }
+    }
+
+};

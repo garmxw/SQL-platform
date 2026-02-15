@@ -1,0 +1,21 @@
+<svg width="200" height="160" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="160" fill="#ffffff"/>
+
+  <!-- Left — wide squat oval -->
+  <ellipse cx="52" cy="88" rx="38" ry="33" fill="#0d0d0d"/>
+
+  <!-- Center — tall rounded pill -->
+  <rect x="97" y="38" width="38" height="84" rx="19" fill="#0d0d0d"/>
+
+  <!-- Right — tall teardrop leaning -->
+  <path
+    d="M162 18
+       C162 18 188 22 190 56
+       C192 86 180 114 172 121
+       C164 128 155 128 147 121
+       C139 114 136 95 138 70
+       C140 43 152 18 162 18 Z"
+    fill="#0d0d0d"
+    transform="rotate(7, 162, 72)"
+  />
+</svg>

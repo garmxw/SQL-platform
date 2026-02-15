@@ -3,6 +3,8 @@ import jwt from "jsonwebtoken";
 import { is_user_exists, create_user } from "../services/userQueries.js";
 import { generateVerificationCode } from "../utils/generateVerificationCode.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
+import { sendVerificationEmail } from "../mail/utils/sendVerificationEmail.js";
+import { saveVerificationCodeHash } from "../services/userQueries.js";
 
 export const signup = async (req, res) => {
   const { username, email, password } = req.body;
@@ -24,12 +26,35 @@ export const signup = async (req, res) => {
 
     // Implement this function to generate a unique verification code
     // it returns an object with the code, its hash, and expiry time
-    const verificationData = await generateVerificationCode(user.email);
-
+    const verificationData = await generateVerificationCode();
+    //debugging logs
     console.log(user);
     console.log(verificationData);
+    //save the verification hash to the db
+    await saveVerificationCodeHash(
+      user.id,
+      verificationData.hash,
+      verificationData.ExpiryDate,
+    );
 
     const token = generateTokenAndSetCookie(user, res);
+    const requestTime = new Date().toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    /*send verification email to the user (this is working i just run out of the free email credits, but gonna do it with node
+    mailer later)*/
+    /*await sendVerificationEmail(
+      user.username,
+      user.email,
+      verificationData.code,
+      requestTime,
+    );*/
 
     res.status(201).json({
       status: "success",
@@ -41,6 +66,7 @@ export const signup = async (req, res) => {
     res.status(500).json({
       status: "error",
       message: "An error occurred during signup. Please try again later.",
+      sendingEmailError: err.message,
     });
   }
 };

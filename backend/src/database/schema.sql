@@ -14,7 +14,11 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     user_role VARCHAR(20) DEFAULT 'student',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- New columns for verification
+    is_verified BOOLEAN DEFAULT FALSE,
+    verification_hash TEXT,
+    verification_expires_at TIMESTAMP
 );
 
 -- Tracks table

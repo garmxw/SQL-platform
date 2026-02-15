@@ -7,7 +7,8 @@ FISH MEMORY
 ## To build:
 
 - [1] signup endpoint
-- [0] send email
+- [1] send email
+- [1] verifiying email
 - [0] login endpoint
 - [0] logout endpoint
 - [0] forget password endpoint
@@ -17,7 +18,8 @@ FISH MEMORY
 
 - [1] Test the generat token and signup endpoint
 - [1] Test the generat verification code
-- [0] Test the send email
+- [1] Test the send email
+- [1] Test the verifiying email
 - [0] Test the login endpoint
 - [0] Test the logout endpoint
 - [0] Test the forget password endpoint
