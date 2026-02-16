@@ -10,8 +10,8 @@ import {
   signupValidation,
   loginValidation,
 } from "../validation/authValidator.js";
+import { verifyEmail } from "../controllers/verifyEmail.js";
 import validationMiddleware from "../middleware/validationMiddleware.js";
-import { verifyEmail } from "../middleware/verifyEmail.js";
 
 const router = Router();
 

@@ -1,6 +1,6 @@
 import { db } from "../config/db.js";
 
-export const is_user_exists = async (email, username) => {
+export const findUserBy_email_Or_username = async (email, username) => {
   let query = `SELECT * FROM users WHERE`;
   const values = [];
 
@@ -18,7 +18,7 @@ export const is_user_exists = async (email, username) => {
   }
   const result = await db.query(query, values);
 
-  return result.rows.length > 0;
+  return result.rows[0];
 };
 
 export const create_user = async (username, email, hashedPassword) => {
@@ -36,15 +36,15 @@ export const saveVerificationCodeHash = async (userId, hash, expiryDate) => {
   await db.query(query, values);
 };
 
-export const get_user_by_email = async (email) => {
-  const query = `SELECT * FROM users WHERE email = $1`;
-  const values = [email];
-  const result = await db.query(query, values);
-  return result.rows[0]; // Return the first row if found, or undefined if not found
-};
-
 export const markUserAsVerified = async (userId) => {
   const query = `UPDATE users SET is_verified = true, verification_hash = null, verification_expires_at = null WHERE id = $1`;
   const values = [userId];
   await db.query(query, values);
+};
+
+export const updateLoginHistory = async (id) => {
+  const query = `UPDATE users SET last_login = CURRENT_TIMESTAMP 
+  WHERE id = $1;`;
+  const value = [id];
+  await db.query(query, value);
 };

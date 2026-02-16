@@ -1,6 +1,10 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { is_user_exists, create_user } from "../services/userQueries.js";
+import {
+  findUserBy_email_Or_username,
+  create_user,
+  updateLoginHistory,
+} from "../services/userQueries.js";
 import { generateVerificationCode } from "../utils/generateVerificationCode.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 import { sendVerificationEmail } from "../mail/utils/sendVerificationEmail.js";
@@ -10,7 +14,7 @@ export const signup = async (req, res) => {
   const { username, email, password } = req.body;
   try {
     //check if user or username exists
-    const existingUser = await is_user_exists(email, username);
+    const existingUser = await findUserBy_email_Or_username(email, username);
     if (existingUser) {
       return res.status(409).json({
         status: "error",
@@ -72,51 +76,61 @@ export const signup = async (req, res) => {
 };
 
 export const login = async (req, res) => {
-  res.send("Login endpoint");
   try {
     const { email, password } = req.body;
     // check if user exists
-    const existingUser = await is_user_exists(email, null);
+    const existingUser = await findUserBy_email_Or_username(email, null);
+
     // existingUser.rows[0].length === 0 means no user found with the provided email
     if (!existingUser) {
       return res.status(401).json({
         status: "failed",
-        message: "Invalid email or password, please try again",
+        message: "Invalid cerdentials, please try again",
       });
     }
-    const user = existingUser.rows[0];
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      existingUser.password_hash,
+    );
 
     if (!isPasswordValid) {
       return res.status(401).json({
         status: "failed",
-        message: "Invalid email or password, please try again",
+        message: "Invalid credentials, please try again",
       });
     }
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        role: user.user_role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN },
-    );
 
-    res.status(200).json({
+    const token = generateTokenAndSetCookie(existingUser, res);
+    await updateLoginHistory(existingUser.id);
+
+    // res.status(200).json({
+    //   status: "success",
+    //   message: "User logged in successfully",
+    //   data: {
+    //     user: {
+    //       id: existingUser.id,
+    //       username: existingUser.username,
+    //       email: existingUser.email,
+    //       user_role: existingUser.user_role,
+    //       last_login: existingUser.last_login,
+    //     },
+    //     token: token,
+    //   },
+    // });
+
+    res.status(201).json({
       status: "success",
-      message: "User logged in successfully",
+      message: "Logged in successfully",
       data: {
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          user_role: user.user_role,
-        },
+        ...existingUser,
+        password: undefined,
+        verification_hash: undefined,
+        verification_expires_at: undefined,
         token: token,
       },
     });
   } catch (err) {
-    console.error("Error during signup:", err);
+    console.error("Error during Login:", err);
     res.status(500).json({
       status: "error",
       message: "An error occurred during login. Please try again later.",
@@ -124,7 +138,25 @@ export const login = async (req, res) => {
   }
 };
 
-export const logout = (req, res) => {};
+export const logout = (req, res) => {
+  try {
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+    res.status(200).json({
+      status: "success",
+      message: "Logged out successfully",
+    });
+  } catch (err) {
+    console.error("Error during Login:", err);
+    res.status(500).json({
+      status: "error",
+      message: "An error occurred during logout. Please try again later.",
+    });
+  }
+};
 
 export const forgotPassword = (req, res) => {};
 

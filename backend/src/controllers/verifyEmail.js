@@ -1,7 +1,8 @@
 import crypto from "crypto";
-import { get_user_by_email } from "../services/userQueries.js";
+import { findUserBy_email_Or_username } from "../services/userQueries.js";
 import dotenv from "dotenv";
 import { markUserAsVerified } from "../services/userQueries.js";
+//import { sendWelcomeEmail } from " ../mail/utils/sendWelcomeEmail.js";
 
 dotenv.config();
 
@@ -15,7 +16,7 @@ export const verifyEmail = async (req, res) => {
       });
     }
     const secret = process.env.VERIFICATION_CODE_SECRET; // Use the same secret key from environment variables
-    const user = await get_user_by_email(email);
+    const user = await findUserBy_email_Or_username(email, null);
     console.log("user from db:", user);
     if (!user) {
       return res.status(400).json({
@@ -44,9 +45,18 @@ export const verifyEmail = async (req, res) => {
 
     // If the code is valid, you can update the user's record to mark him as verified
     await markUserAsVerified(user.id); // Implement this function to update the user's record in the database
+
+    //await sendWelcomeEmail(user.email, user.username);
+
+    // Implemented this function to send a confirmation email to the user (it working but im out of email credits in mailtrap)
+
     return res.status(200).json({
       status: "success",
       message: "Email verified successfully",
+      user: {
+        email: user.email,
+        username: user.username,
+      },
     });
   } catch (error) {
     console.error("Error verifying email:", error);
