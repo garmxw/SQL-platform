@@ -1306,592 +1306,593 @@ export const resetPasswordEmailTemplate = `<!DOCTYPE html>
 </body>
 </html>`;
 
-export const forgotPasswordEmailTemplate = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Forgot Password — SQLCore</title>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background-color: #0a0a0a;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      color: #f0f0f0;
-      padding: 48px 16px;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .wrapper {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* ── Header / Logo ── */
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 40px;
-    }
-
-    .logo-mark {
-      width: 44px;
-      height: 44px;
-      flex-shrink: 0;
-    }
-
-    .logo-mark svg { width: 100%; height: 100%; }
-
-    .logo-text {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.03em;
-      color: #ffffff;
-    }
-
-    /* ── Card ── */
-    .card {
-      background: #111111;
-      border: 1px solid #222222;
-      border-radius: 2px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .card::before {
-      content: '';
-      display: block;
-      height: 2px;
-      background: linear-gradient(90deg, #ffffff 0%, #555555 60%, transparent 100%);
-    }
-
-    .card-bg-pattern {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-      background-size: 28px 28px;
-      pointer-events: none;
-    }
-
-    .card-inner {
-      position: relative;
-      padding: 56px 56px 52px;
-    }
-
-    /* ── Decorative line numbers ── */
-    
-
-    /* ── Tag ── */
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #777;
-      margin-bottom: 32px;
-    }
-
-    .tag-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #fff;
-      animation: blink 2s ease-in-out infinite;
-    }
-
-    @keyframes blink {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.25; transform: scale(0.65); }
-    }
-
-    /* ── Greeting ── */
-    .greeting {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 13px;
-      color: #777;
-      letter-spacing: 0.01em;
-      margin-bottom: 12px;
-    }
-
-    /* ── Headline ── */
-    .headline {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 32px;
-      font-weight: 600;
-      letter-spacing: -0.04em;
-      line-height: 1.15;
-      color: #ffffff;
-      margin-bottom: 24px;
-    }
-
-    .headline em {
-      font-style: normal;
-      color: #777;
-      font-weight: 400;
-    }
-
-    /* ── Body text ── */
-    .body-text {
-      font-size: 15px;
-      line-height: 1.75;
-      color: #888;
-      max-width: 440px;
-      margin-bottom: 40px;
-    }
-
-    .body-text strong { color: #bbb; font-weight: 500; }
-
-    /* ── Divider ── */
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 36px;
-    }
-
-    .divider-line { flex: 1; height: 1px; background: #1e1e1e; }
-
-    .divider-label {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      color: #555;
-      text-transform: uppercase;
-    }
-
-    /* ── Key visual — lock icon block ── */
-    .lock-block {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      background: #000;
-      border: 1px solid #1e1e1e;
-      border-radius: 2px;
-      padding: 24px 28px;
-      margin-bottom: 32px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* corner accents */
-    .lock-block::before, .lock-block::after {
-      content: '';
-      position: absolute;
-      width: 14px;
-      height: 14px;
-    }
-    .lock-block::before { top: -1px; left: -1px; border-top: 2px solid #fff; border-left: 2px solid #fff; }
-    .lock-block::after  { bottom: -1px; right: -1px; border-bottom: 2px solid #fff; border-right: 2px solid #fff; }
-
-    .lock-icon-wrap {
-      flex-shrink: 0;
-      width: 52px;
-      height: 52px;
-      border: 1px solid #2a2a2a;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .lock-icon-wrap svg { opacity: 0.85; }
-
-    .lock-text { flex: 1; }
-
-    .lock-title {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      color: #ccc;
-      letter-spacing: -0.02em;
-      margin-bottom: 4px;
-    }
-
-    .lock-sub {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      color: #666;
-      letter-spacing: 0.05em;
-    }
-
-    .lock-sub strong { color: #777; font-weight: 500; }
-
-    /* ── Steps ── */
-    .steps {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      margin-bottom: 40px;
-    }
-
-    .step {
-      display: flex;
-      align-items: flex-start;
-      gap: 16px;
-      padding: 14px 0;
-      border-bottom: 1px solid #161616;
-    }
-
-    .step:last-child { border-bottom: none; }
-
-    .step-num {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      color: #555;
-      letter-spacing: 0.1em;
-      flex-shrink: 0;
-      padding-top: 1px;
-      width: 28px;
-    }
-
-    .step-content { flex: 1; }
-
-    .step-title {
-      font-size: 13px;
-      font-weight: 500;
-      color: #bbb;
-      letter-spacing: -0.01em;
-      margin-bottom: 2px;
-    }
-
-    .step-desc {
-      font-size: 13px;
-      color: #666;
-      line-height: 1.6;
-    }
-
-    /* ── CTA ── */
-    .cta-wrap { margin-bottom: 36px; }
-
-    .cta-btn {
-      display: inline-block;
-      background: #ffffff;
-      color: #000000;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      text-decoration: none;
-      padding: 14px 28px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .cta-btn::after { content: ' →'; font-size: 15px; }
-
-    /* ── Fallback link ── */
-    .link-fallback { margin-top: 16px; }
-
-    .link-fallback p {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      color: #555;
-      letter-spacing: 0.05em;
-      margin-bottom: 8px;
-    }
-
-    .link-fallback-url {
-      font-family: 'Geist Mono', 'Courier New', monospace;
-      font-size: 11px;
-      color: #666;
-      word-break: break-all;
-      background: #0d0d0d;
-      border: 1px solid #1e1e1e;
-      border-radius: 4px;
-      padding: 10px 14px;
-      display: block;
-      line-height: 1.6;
-    }
-
-    /* ── Expiry row ── */
-    .expiry-row {
-      margin-top: 20px;
-      margin-bottom: 44px;
-    }
-
-    .expiry-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #0d0d0d;
-      border: 1px solid #1e1e1e;
-      border-radius: 4px;
-      padding: 6px 12px;
-    }
-
-    .expiry-badge svg { opacity: 0.35; flex-shrink: 0; }
-
-    .expiry-badge span {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      color: #666;
-      letter-spacing: 0.04em;
-    }
-
-    .expiry-badge strong { color: #777; font-weight: 500; }
-
-    /* ── Notice ── */
-    .notice {
-      background: #0f0f0f;
-      border: 1px solid #1c1c1c;
-      border-left: 2px solid #2a2a2a;
-      padding: 18px 20px;
-      border-radius: 2px;
-      margin-bottom: 44px;
-    }
-
-    .notice-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .notice-icon { width: 14px; height: 14px; opacity: 0.4; flex-shrink: 0; }
-
-    .notice-title {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #666;
-    }
-
-    .notice-text {
-      font-size: 13px;
-      line-height: 1.65;
-      color: #666;
-    }
-
-    .notice-text a { color: #777; text-decoration: underline; text-underline-offset: 2px; }
-
-    /* ── Footer ── */
-    .footer {
-      padding: 32px 52px 40px;
-      border-top: 1px solid #1a1a1a;
-    }
-
-    .footer-grid {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 24px;
-    }
-
-    .footer-links { display: flex; gap: 20px; }
-
-    .footer-links a {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #2e2e2e;
-      text-decoration: none;
-    }
-
-    .footer-copy {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #2a2a2a;
-      text-align: right;
-    }
-
-    .footer-bottom {
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid #161616;
-    }
-
-    .footer-addr {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #252525;
-      line-height: 1.7;
-    }
-
-    /* Responsive */
-    @media (max-width: 540px) {
-      .card-inner { padding: 36px 28px 32px; }
-      .footer { padding: 24px 28px 32px; }
-      .headline { font-size: 26px; }
-      .footer-grid { flex-direction: column; }
-      .footer-copy { text-align: left; }
-      .lock-block { flex-direction: column; }
-    }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-
-    <!-- Logo Header -->
-    <div class="header">
-      <div class="logo-mark">
-        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="42" height="42" rx="1" stroke="#333" stroke-width="1"/>
-          <ellipse cx="22" cy="14" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
-          <line x1="12" y1="14" x2="12" y2="26" stroke="#fff" stroke-width="1.5"/>
-          <line x1="32" y1="14" x2="32" y2="26" stroke="#fff" stroke-width="1.5"/>
-          <ellipse cx="22" cy="26" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
-          <ellipse cx="22" cy="19" rx="10" ry="4" stroke="#555" stroke-width="1" stroke-dasharray="2 3"/>
-          <path d="M4 4 L4 8" stroke="#666" stroke-width="1"/>
-          <path d="M4 4 L8 4" stroke="#666" stroke-width="1"/>
-          <path d="M40 40 L40 36" stroke="#666" stroke-width="1"/>
-          <path d="M40 40 L36 40" stroke="#666" stroke-width="1"/>
-        </svg>
-      </div>
-      <div class="logo-text">SQLCore</div>
-    </div>
-
-    <!-- Main Card -->
-    <div class="card">
-      <div class="card-bg-pattern"></div>
-
-      <div class="card-inner">
-
-        <!-- Tag -->
-        <div class="tag">
-          <span class="tag-dot"></span>
-          Account Recovery
-        </div>
-
-        <!-- Greeting + Headline -->
-        <p class="greeting">Hello, {userName}</p>
-        <h1 class="headline">Forgot your<br><em>password?</em></h1>
-
-        <p class="body-text">
-          No worries — it happens to the best of us. We received a request to recover
-          access to your <strong>SQLCore</strong> account. Follow the steps below to
-          get back in.
-        </p>
-
-        <!-- Divider -->
-        <div class="divider">
-          <div class="divider-line"></div>
-          <div class="divider-label">Recovery</div>
-          <div class="divider-line"></div>
-        </div>
-
-        <!-- Lock visual block -->
-        <div class="lock-block">
-          <div class="lock-icon-wrap">
-            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- shackle -->
-              <path d="M8 11V8C8 5.24 10.24 3 13 3C15.76 3 18 5.24 18 8V11" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-              <!-- body -->
-              <rect x="5" y="11" width="16" height="12" rx="2" stroke="#fff" stroke-width="1.5"/>
-              <!-- keyhole -->
-              <circle cx="13" cy="17" r="2" stroke="#fff" stroke-width="1.2"/>
-              <line x1="13" y1="19" x2="13" y2="21" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <div class="lock-text">
-            <div class="lock-title">Access recovery initiated</div>
-            <div class="lock-sub">
-              Requested for <strong>{userEmail}</strong> · <strong>{requestTime}</strong>
-            </div>
-          </div>
-        </div>
-
-        <!-- Steps -->
-        <div class="steps">
-          <div class="step">
-            <div class="step-num">01.</div>
-            <div class="step-content">
-              <div class="step-title">Click the recovery link below</div>
-              <div class="step-desc">Opens a secure page to create a new password for your account.</div>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-num">02.</div>
-            <div class="step-content">
-              <div class="step-title">Choose a strong new password</div>
-              <div class="step-desc">At least 12 characters. Mix letters, numbers, and symbols.</div>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-num">03.</div>
-            <div class="step-content">
-              <div class="step-title">Sign back in to SQLCore</div>
-              <div class="step-desc">All active sessions will be logged out automatically for your security.</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- CTA -->
-        <div class="cta-wrap">
-          <div style="font-family:'Geist Mono','Courier New',monospace;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:#3a3a3a;margin-bottom:14px;">Recovery link</div>
-          <a href="{recoveryLink}" class="cta-btn">Recover my account</a>
-
-          <div class="link-fallback">
-            <p>Or paste this link into your browser:</p>
-            <span class="link-fallback-url">{recoveryLink}</span>
-          </div>
-        </div>
-
-        <!-- Expiry -->
-        <div class="expiry-row">
-          <div class="expiry-badge">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <circle cx="6" cy="6" r="5" stroke="#fff" stroke-width="1"/>
-              <line x1="6" y1="3" x2="6" y2="6.5" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
-              <line x1="6" y1="6.5" x2="8.2" y2="8" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
-            </svg>
-            <span>Link expires in <strong>15 minutes</strong> · Single use only</span>
-          </div>
-        </div>
-
-        <!-- Notice -->
-        <div class="notice">
-          <div class="notice-header">
-            <svg class="notice-icon" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1L1.5 3.5V7C1.5 10.08 4 12.95 7 13.5C10 12.95 12.5 10.08 12.5 7V3.5L7 1Z" stroke="#fff" stroke-width="1"/>
-              <line x1="7" y1="5" x2="7" y2="8" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
-              <circle cx="7" cy="10" r="0.6" fill="#fff"/>
-            </svg>
-            <div class="notice-title">Didn't request this?</div>
-          </div>
-          <p class="notice-text">
-            If you didn't ask to recover your account, your password is still safe — just ignore
-            this email and nothing will change. If you suspect unauthorized access, please
-            <a href="#">contact support</a> right away.
-          </p>
-        </div>
-
-      </div><!-- /.card-inner -->
-
-      <!-- Footer -->
-      <div class="footer">
-        <div class="footer-grid">
-          <div class="footer-links">
-            <a href="#">privacy</a>
-            <a href="#">terms</a>
-            <a href="#">docs</a>
-            <a href="#">unsubscribe</a>
-          </div>
-          <div class="footer-copy">
-            © 2025 SQLCore, Inc.<br>All rights reserved.
-          </div>
-        </div>
-        <div class="footer-bottom">
-          <div class="footer-addr">
-            SQLCore, Inc. · 742 Database Drive, Suite 0x1F · San Francisco, CA 94105<br>
-            This email was sent to {userEmail} because a password recovery was requested for this account.
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /.card -->
-
-  </div><!-- /.wrapper -->
-</body>
-</html>`;
+// this maybe wrong , maybe need to remove it
+
+// export const forgotPasswordEmailTemplate = `<!DOCTYPE html>
+// <html lang="en">
+// <head>
+//   <meta charset="UTF-8" />
+//   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+//   <title>Forgot Password — SQLCore</title>
+//   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+//   <style>
+//     * { margin: 0; padding: 0; box-sizing: border-box; }
+
+//     body {
+//       background-color: #0a0a0a;
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       color: #f0f0f0;
+//       padding: 48px 16px;
+//       -webkit-font-smoothing: antialiased;
+//     }
+
+//     .wrapper {
+//       max-width: 600px;
+//       margin: 0 auto;
+//     }
+
+//     /* ── Header / Logo ── */
+//     .header {
+//       display: flex;
+//       align-items: center;
+//       gap: 14px;
+//       margin-bottom: 40px;
+//     }
+
+//     .logo-mark {
+//       width: 44px;
+//       height: 44px;
+//       flex-shrink: 0;
+//     }
+
+//     .logo-mark svg { width: 100%; height: 100%; }
+
+//     .logo-text {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 20px;
+//       font-weight: 600;
+//       letter-spacing: -0.03em;
+//       color: #ffffff;
+//     }
+
+//     /* ── Card ── */
+//     .card {
+//       background: #111111;
+//       border: 1px solid #222222;
+//       border-radius: 2px;
+//       overflow: hidden;
+//       position: relative;
+//     }
+
+//     .card::before {
+//       content: '';
+//       display: block;
+//       height: 2px;
+//       background: linear-gradient(90deg, #ffffff 0%, #555555 60%, transparent 100%);
+//     }
+
+//     .card-bg-pattern {
+//       position: absolute;
+//       inset: 0;
+//       background-image:
+//         linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+//         linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+//       background-size: 28px 28px;
+//       pointer-events: none;
+//     }
+
+//     .card-inner {
+//       position: relative;
+//       padding: 56px 56px 52px;
+//     }
+
+//     /* ── Decorative line numbers ── */
+
+//     /* ── Tag ── */
+//     .tag {
+//       display: inline-flex;
+//       align-items: center;
+//       gap: 8px;
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 10px;
+//       letter-spacing: 0.18em;
+//       text-transform: uppercase;
+//       color: #777;
+//       margin-bottom: 32px;
+//     }
+
+//     .tag-dot {
+//       width: 6px;
+//       height: 6px;
+//       border-radius: 50%;
+//       background: #fff;
+//       animation: blink 2s ease-in-out infinite;
+//     }
+
+//     @keyframes blink {
+//       0%, 100% { opacity: 1; transform: scale(1); }
+//       50%       { opacity: 0.25; transform: scale(0.65); }
+//     }
+
+//     /* ── Greeting ── */
+//     .greeting {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 13px;
+//       color: #777;
+//       letter-spacing: 0.01em;
+//       margin-bottom: 12px;
+//     }
+
+//     /* ── Headline ── */
+//     .headline {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 32px;
+//       font-weight: 600;
+//       letter-spacing: -0.04em;
+//       line-height: 1.15;
+//       color: #ffffff;
+//       margin-bottom: 24px;
+//     }
+
+//     .headline em {
+//       font-style: normal;
+//       color: #777;
+//       font-weight: 400;
+//     }
+
+//     /* ── Body text ── */
+//     .body-text {
+//       font-size: 15px;
+//       line-height: 1.75;
+//       color: #888;
+//       max-width: 440px;
+//       margin-bottom: 40px;
+//     }
+
+//     .body-text strong { color: #bbb; font-weight: 500; }
+
+//     /* ── Divider ── */
+//     .divider {
+//       display: flex;
+//       align-items: center;
+//       gap: 16px;
+//       margin-bottom: 36px;
+//     }
+
+//     .divider-line { flex: 1; height: 1px; background: #1e1e1e; }
+
+//     .divider-label {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 9px;
+//       letter-spacing: 0.2em;
+//       color: #555;
+//       text-transform: uppercase;
+//     }
+
+//     /* ── Key visual — lock icon block ── */
+//     .lock-block {
+//       display: flex;
+//       align-items: center;
+//       gap: 20px;
+//       background: #000;
+//       border: 1px solid #1e1e1e;
+//       border-radius: 2px;
+//       padding: 24px 28px;
+//       margin-bottom: 32px;
+//       position: relative;
+//       overflow: hidden;
+//     }
+
+//     /* corner accents */
+//     .lock-block::before, .lock-block::after {
+//       content: '';
+//       position: absolute;
+//       width: 14px;
+//       height: 14px;
+//     }
+//     .lock-block::before { top: -1px; left: -1px; border-top: 2px solid #fff; border-left: 2px solid #fff; }
+//     .lock-block::after  { bottom: -1px; right: -1px; border-bottom: 2px solid #fff; border-right: 2px solid #fff; }
+
+//     .lock-icon-wrap {
+//       flex-shrink: 0;
+//       width: 52px;
+//       height: 52px;
+//       border: 1px solid #2a2a2a;
+//       border-radius: 50%;
+//       display: flex;
+//       align-items: center;
+//       justify-content: center;
+//     }
+
+//     .lock-icon-wrap svg { opacity: 0.85; }
+
+//     .lock-text { flex: 1; }
+
+//     .lock-title {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 14px;
+//       font-weight: 500;
+//       color: #ccc;
+//       letter-spacing: -0.02em;
+//       margin-bottom: 4px;
+//     }
+
+//     .lock-sub {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 10px;
+//       color: #666;
+//       letter-spacing: 0.05em;
+//     }
+
+//     .lock-sub strong { color: #777; font-weight: 500; }
+
+//     /* ── Steps ── */
+//     .steps {
+//       display: flex;
+//       flex-direction: column;
+//       gap: 0;
+//       margin-bottom: 40px;
+//     }
+
+//     .step {
+//       display: flex;
+//       align-items: flex-start;
+//       gap: 16px;
+//       padding: 14px 0;
+//       border-bottom: 1px solid #161616;
+//     }
+
+//     .step:last-child { border-bottom: none; }
+
+//     .step-num {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 10px;
+//       color: #555;
+//       letter-spacing: 0.1em;
+//       flex-shrink: 0;
+//       padding-top: 1px;
+//       width: 28px;
+//     }
+
+//     .step-content { flex: 1; }
+
+//     .step-title {
+//       font-size: 13px;
+//       font-weight: 500;
+//       color: #bbb;
+//       letter-spacing: -0.01em;
+//       margin-bottom: 2px;
+//     }
+
+//     .step-desc {
+//       font-size: 13px;
+//       color: #666;
+//       line-height: 1.6;
+//     }
+
+//     /* ── CTA ── */
+//     .cta-wrap { margin-bottom: 36px; }
+
+//     .cta-btn {
+//       display: inline-block;
+//       background: #ffffff;
+//       color: #000000;
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 14px;
+//       font-weight: 500;
+//       letter-spacing: -0.01em;
+//       text-decoration: none;
+//       padding: 14px 28px;
+//       border-radius: 6px;
+//       cursor: pointer;
+//     }
+
+//     .cta-btn::after { content: ' →'; font-size: 15px; }
+
+//     /* ── Fallback link ── */
+//     .link-fallback { margin-top: 16px; }
+
+//     .link-fallback p {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 10px;
+//       color: #555;
+//       letter-spacing: 0.05em;
+//       margin-bottom: 8px;
+//     }
+
+//     .link-fallback-url {
+//       font-family: 'Geist Mono', 'Courier New', monospace;
+//       font-size: 11px;
+//       color: #666;
+//       word-break: break-all;
+//       background: #0d0d0d;
+//       border: 1px solid #1e1e1e;
+//       border-radius: 4px;
+//       padding: 10px 14px;
+//       display: block;
+//       line-height: 1.6;
+//     }
+
+//     /* ── Expiry row ── */
+//     .expiry-row {
+//       margin-top: 20px;
+//       margin-bottom: 44px;
+//     }
+
+//     .expiry-badge {
+//       display: inline-flex;
+//       align-items: center;
+//       gap: 6px;
+//       background: #0d0d0d;
+//       border: 1px solid #1e1e1e;
+//       border-radius: 4px;
+//       padding: 6px 12px;
+//     }
+
+//     .expiry-badge svg { opacity: 0.35; flex-shrink: 0; }
+
+//     .expiry-badge span {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 10px;
+//       color: #666;
+//       letter-spacing: 0.04em;
+//     }
+
+//     .expiry-badge strong { color: #777; font-weight: 500; }
+
+//     /* ── Notice ── */
+//     .notice {
+//       background: #0f0f0f;
+//       border: 1px solid #1c1c1c;
+//       border-left: 2px solid #2a2a2a;
+//       padding: 18px 20px;
+//       border-radius: 2px;
+//       margin-bottom: 44px;
+//     }
+
+//     .notice-header {
+//       display: flex;
+//       align-items: center;
+//       gap: 8px;
+//       margin-bottom: 8px;
+//     }
+
+//     .notice-icon { width: 14px; height: 14px; opacity: 0.4; flex-shrink: 0; }
+
+//     .notice-title {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 9px;
+//       letter-spacing: 0.2em;
+//       text-transform: uppercase;
+//       color: #666;
+//     }
+
+//     .notice-text {
+//       font-size: 13px;
+//       line-height: 1.65;
+//       color: #666;
+//     }
+
+//     .notice-text a { color: #777; text-decoration: underline; text-underline-offset: 2px; }
+
+//     /* ── Footer ── */
+//     .footer {
+//       padding: 32px 52px 40px;
+//       border-top: 1px solid #1a1a1a;
+//     }
+
+//     .footer-grid {
+//       display: flex;
+//       justify-content: space-between;
+//       align-items: flex-start;
+//       gap: 24px;
+//     }
+
+//     .footer-links { display: flex; gap: 20px; }
+
+//     .footer-links a {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 11px;
+//       color: #2e2e2e;
+//       text-decoration: none;
+//     }
+
+//     .footer-copy {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 11px;
+//       color: #2a2a2a;
+//       text-align: right;
+//     }
+
+//     .footer-bottom {
+//       margin-top: 24px;
+//       padding-top: 20px;
+//       border-top: 1px solid #161616;
+//     }
+
+//     .footer-addr {
+//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+//       font-size: 11px;
+//       color: #252525;
+//       line-height: 1.7;
+//     }
+
+//     /* Responsive */
+//     @media (max-width: 540px) {
+//       .card-inner { padding: 36px 28px 32px; }
+//       .footer { padding: 24px 28px 32px; }
+//       .headline { font-size: 26px; }
+//       .footer-grid { flex-direction: column; }
+//       .footer-copy { text-align: left; }
+//       .lock-block { flex-direction: column; }
+//     }
+//   </style>
+// </head>
+// <body>
+//   <div class="wrapper">
+
+//     <!-- Logo Header -->
+//     <div class="header">
+//       <div class="logo-mark">
+//         <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+//           <rect x="1" y="1" width="42" height="42" rx="1" stroke="#333" stroke-width="1"/>
+//           <ellipse cx="22" cy="14" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
+//           <line x1="12" y1="14" x2="12" y2="26" stroke="#fff" stroke-width="1.5"/>
+//           <line x1="32" y1="14" x2="32" y2="26" stroke="#fff" stroke-width="1.5"/>
+//           <ellipse cx="22" cy="26" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
+//           <ellipse cx="22" cy="19" rx="10" ry="4" stroke="#555" stroke-width="1" stroke-dasharray="2 3"/>
+//           <path d="M4 4 L4 8" stroke="#666" stroke-width="1"/>
+//           <path d="M4 4 L8 4" stroke="#666" stroke-width="1"/>
+//           <path d="M40 40 L40 36" stroke="#666" stroke-width="1"/>
+//           <path d="M40 40 L36 40" stroke="#666" stroke-width="1"/>
+//         </svg>
+//       </div>
+//       <div class="logo-text">SQLCore</div>
+//     </div>
+
+//     <!-- Main Card -->
+//     <div class="card">
+//       <div class="card-bg-pattern"></div>
+
+//       <div class="card-inner">
+
+//         <!-- Tag -->
+//         <div class="tag">
+//           <span class="tag-dot"></span>
+//           Account Recovery
+//         </div>
+
+//         <!-- Greeting + Headline -->
+//         <p class="greeting">Hello, {userName}</p>
+//         <h1 class="headline">Forgot your<br><em>password?</em></h1>
+
+//         <p class="body-text">
+//           No worries — it happens to the best of us. We received a request to recover
+//           access to your <strong>SQLCore</strong> account. Follow the steps below to
+//           get back in.
+//         </p>
+
+//         <!-- Divider -->
+//         <div class="divider">
+//           <div class="divider-line"></div>
+//           <div class="divider-label">Recovery</div>
+//           <div class="divider-line"></div>
+//         </div>
+
+//         <!-- Lock visual block -->
+//         <div class="lock-block">
+//           <div class="lock-icon-wrap">
+//             <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+//               <!-- shackle -->
+//               <path d="M8 11V8C8 5.24 10.24 3 13 3C15.76 3 18 5.24 18 8V11" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+//               <!-- body -->
+//               <rect x="5" y="11" width="16" height="12" rx="2" stroke="#fff" stroke-width="1.5"/>
+//               <!-- keyhole -->
+//               <circle cx="13" cy="17" r="2" stroke="#fff" stroke-width="1.2"/>
+//               <line x1="13" y1="19" x2="13" y2="21" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+//             </svg>
+//           </div>
+//           <div class="lock-text">
+//             <div class="lock-title">Access recovery initiated</div>
+//             <div class="lock-sub">
+//               Requested for <strong>{userEmail}</strong> · <strong>{requestTime}</strong>
+//             </div>
+//           </div>
+//         </div>
+
+//         <!-- Steps -->
+//         <div class="steps">
+//           <div class="step">
+//             <div class="step-num">01.</div>
+//             <div class="step-content">
+//               <div class="step-title">Click the recovery link below</div>
+//               <div class="step-desc">Opens a secure page to create a new password for your account.</div>
+//             </div>
+//           </div>
+//           <div class="step">
+//             <div class="step-num">02.</div>
+//             <div class="step-content">
+//               <div class="step-title">Choose a strong new password</div>
+//               <div class="step-desc">At least 12 characters. Mix letters, numbers, and symbols.</div>
+//             </div>
+//           </div>
+//           <div class="step">
+//             <div class="step-num">03.</div>
+//             <div class="step-content">
+//               <div class="step-title">Sign back in to SQLCore</div>
+//               <div class="step-desc">All active sessions will be logged out automatically for your security.</div>
+//             </div>
+//           </div>
+//         </div>
+
+//         <!-- CTA -->
+//         <div class="cta-wrap">
+//           <div style="font-family:'Geist Mono','Courier New',monospace;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:#3a3a3a;margin-bottom:14px;">Recovery link</div>
+//           <a href="{recoveryLink}" class="cta-btn">Recover my account</a>
+
+//           <div class="link-fallback">
+//             <p>Or paste this link into your browser:</p>
+//             <span class="link-fallback-url">{recoveryLink}</span>
+//           </div>
+//         </div>
+
+//         <!-- Expiry -->
+//         <div class="expiry-row">
+//           <div class="expiry-badge">
+//             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+//               <circle cx="6" cy="6" r="5" stroke="#fff" stroke-width="1"/>
+//               <line x1="6" y1="3" x2="6" y2="6.5" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
+//               <line x1="6" y1="6.5" x2="8.2" y2="8" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
+//             </svg>
+//             <span>Link expires in <strong>15 minutes</strong> · Single use only</span>
+//           </div>
+//         </div>
+
+//         <!-- Notice -->
+//         <div class="notice">
+//           <div class="notice-header">
+//             <svg class="notice-icon" viewBox="0 0 14 14" fill="none">
+//               <path d="M7 1L1.5 3.5V7C1.5 10.08 4 12.95 7 13.5C10 12.95 12.5 10.08 12.5 7V3.5L7 1Z" stroke="#fff" stroke-width="1"/>
+//               <line x1="7" y1="5" x2="7" y2="8" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+//               <circle cx="7" cy="10" r="0.6" fill="#fff"/>
+//             </svg>
+//             <div class="notice-title">Didn't request this?</div>
+//           </div>
+//           <p class="notice-text">
+//             If you didn't ask to recover your account, your password is still safe — just ignore
+//             this email and nothing will change. If you suspect unauthorized access, please
+//             <a href="#">contact support</a> right away.
+//           </p>
+//         </div>
+
+//       </div><!-- /.card-inner -->
+
+//       <!-- Footer -->
+//       <div class="footer">
+//         <div class="footer-grid">
+//           <div class="footer-links">
+//             <a href="#">privacy</a>
+//             <a href="#">terms</a>
+//             <a href="#">docs</a>
+//             <a href="#">unsubscribe</a>
+//           </div>
+//           <div class="footer-copy">
+//             © 2025 SQLCore, Inc.<br>All rights reserved.
+//           </div>
+//         </div>
+//         <div class="footer-bottom">
+//           <div class="footer-addr">
+//             SQLCore, Inc. · 742 Database Drive, Suite 0x1F · San Francisco, CA 94105<br>
+//             This email was sent to {userEmail} because a password recovery was requested for this account.
+//           </div>
+//         </div>
+//       </div>
+
+//     </div><!-- /.card -->
+
+//   </div><!-- /.wrapper -->
+// </body>
+// </html>`;
 
 export const accountChangeEmailTemplate = `<!DOCTYPE html>
 <html lang="en">

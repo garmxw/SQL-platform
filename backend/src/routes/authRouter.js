@@ -5,6 +5,7 @@ import {
   logout,
   forgotPassword,
   resetPassword,
+  forgotPassword,
 } from "../controllers/authLogic.js";
 import {
   signupValidation,

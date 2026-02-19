@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import {
   findUserBy_email_Or_username,
   create_user,
@@ -7,8 +7,14 @@ import {
 } from "../services/userQueries.js";
 import { generateVerificationCode } from "../utils/generateVerificationCode.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
-import { sendVerificationEmail } from "../mail/utils/sendVerificationEmail.js";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+} from "../mail/utils/sendVerificationEmail.js";
 import { saveVerificationCodeHash } from "../services/userQueries.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export const signup = async (req, res) => {
   const { username, email, password } = req.body;
@@ -158,6 +164,43 @@ export const logout = (req, res) => {
   }
 };
 
-export const forgotPassword = (req, res) => {};
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await findUserBy_email_Or_username(email, null);
+
+    if (!user) {
+      return res.status(400).json({
+        status: "failed",
+        message: "User not found, Try with another emai",
+      });
+    }
+
+    const resetToken = crypto.randomBytes(20).toString("hex");
+
+    const resetVerificationData = generateVerificationCode(); // need to change this all i got it wrong
+    await saveVerificationCodeHash(
+      user.id,
+      resetVerificationData.hash,
+      resetVerificationData.ExpiryDate,
+    );
+
+    await sendPasswordResetEmail(
+      user.email,
+      `${process.env.CLIENT_URL}/reset-password/${resetToken}`,
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Password reset link sent to your email",
+    });
+  } catch (error) {
+    console.log("Error in forget password: ", error);
+    res.status(400).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
 
 export const resetPassword = (req, res) => {};
