@@ -1,579 +1,177 @@
 export const verificationEmailTemplate = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Verify Your Account — SQLCore</title>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background-color: #0a0a0a;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      color: #f0f0f0;
-      padding: 48px 16px;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .wrapper {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* ── Header / Logo ── */
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 40px;
-    }
-
-    .logo-mark {
-      width: 44px;
-      height: 44px;
-      flex-shrink: 0;
-    }
-
-    .logo-mark svg { width: 100%; height: 100%; }
-
-    .logo-text {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.03em;
-      color: #ffffff;
-    }
-
-    /* ── Card ── */
-    .card {
-      background: #111111;
-      border: 1px solid #222222;
-      border-radius: 2px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .card::before {
-      content: '';
-      display: block;
-      height: 2px;
-      background: linear-gradient(90deg, #ffffff 0%, #555555 60%, transparent 100%);
-    }
-
-    .card-bg-pattern {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-      background-size: 28px 28px;
-      pointer-events: none;
-    }
-
-    .card-inner {
-      position: relative;
-      padding: 56px 56px 52px;
-    }
-
-    /* ── Decorative line numbers ── */
-    
-
-    /* ── Tag ── */
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #777;
-      margin-bottom: 32px;
-    }
-
-    .tag-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #fff;
-      animation: pulse 2.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.25; transform: scale(0.65); }
-    }
-
-    /* ── Greeting ── */
-    .greeting {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 13px;
-      color: #777;
-      letter-spacing: 0.01em;
-      margin-bottom: 12px;
-    }
-
-    /* ── Headline ── */
-    .headline {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 32px;
-      font-weight: 600;
-      letter-spacing: -0.04em;
-      line-height: 1.15;
-      color: #ffffff;
-      margin-bottom: 24px;
-    }
-
-    .headline em {
-      font-style: normal;
-      color: #777;
-      font-weight: 400;
-    }
-
-    /* ── Body text ── */
-    .body-text {
-      font-size: 15px;
-      line-height: 1.75;
-      color: #888;
-      max-width: 440px;
-      margin-bottom: 40px;
-    }
-
-    .body-text strong { color: #bbb; font-weight: 500; }
-
-    /* ── Divider ── */
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 36px;
-    }
-
-    .divider-line { flex: 1; height: 1px; background: #1e1e1e; }
-
-    .divider-label {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      color: #555;
-      text-transform: uppercase;
-    }
-
-    /* ── Shield visual block ── */
-    .shield-block {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      background: #000;
-      border: 1px solid #1e1e1e;
-      border-radius: 2px;
-      padding: 24px 28px;
-      margin-bottom: 32px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .shield-block::before, .shield-block::after {
-      content: '';
-      position: absolute;
-      width: 14px;
-      height: 14px;
-    }
-    .shield-block::before { top: -1px; left: -1px; border-top: 2px solid #fff; border-left: 2px solid #fff; }
-    .shield-block::after  { bottom: -1px; right: -1px; border-bottom: 2px solid #fff; border-right: 2px solid #fff; }
-
-    .shield-icon-wrap {
-      flex-shrink: 0;
-      width: 52px;
-      height: 52px;
-      border: 1px solid #2a2a2a;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .shield-text { flex: 1; }
-
-    .shield-title {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      color: #ccc;
-      letter-spacing: -0.02em;
-      margin-bottom: 4px;
-    }
-
-    .shield-sub {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      color: #666;
-      letter-spacing: 0.05em;
-    }
-
-    .shield-sub strong { color: #777; font-weight: 500; }
-
-    /* ── Code block ── */
-    .code-section { margin-bottom: 32px; }
-
-    .code-label {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #666;
-      margin-bottom: 14px;
-    }
-
-    .code-box {
-      background: #000;
-      border: 1px solid #2a2a2a;
-      border-radius: 2px;
-      padding: 40px 32px 32px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 18px;
-      position: relative;
-      overflow: hidden;
-      text-align: center;
-      width: 100%;
-    }
-
-    .code-box::before, .code-box::after {
-      content: '';
-      position: absolute;
-      width: 16px;
-      height: 16px;
-    }
-    .code-box::before { top: -1px; left: -1px; border-top: 2px solid #fff; border-left: 2px solid #fff; }
-    .code-box::after  { bottom: -1px; right: -1px; border-bottom: 2px solid #fff; border-right: 2px solid #fff; }
-
-    .code-value {
-      font-family: 'Geist Mono', 'Courier New', monospace;
-      font-size: clamp(30px, 9vw, 46px);
-      font-weight: 500;
-      letter-spacing: 0.3em;
-      text-indent: 0.3em;
-      color: #ffffff;
-      display: block;
-      width: 100%;
-      text-align: center;
-    }
-
-    .code-meta {
-      text-align: center;
-      width: 100%;
-    }
-
-    .code-expires {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #555;
-      letter-spacing: 0.03em;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .code-expires-dot {
-      width: 3px;
-      height: 3px;
-      border-radius: 50%;
-      background: #333;
-      display: inline-block;
-      flex-shrink: 0;
-    }
-
-    .code-expires span { color: #888; font-weight: 500; }
-
-    /* ── CTA ── */
-    .cta-wrap { margin-bottom: 20px; }
-
-    .cta-btn {
-      display: inline-block;
-      background: #ffffff;
-      color: #000000;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      text-decoration: none;
-      padding: 14px 28px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    .cta-btn::after { content: ' →'; font-size: 15px; }
-
-    /* ── Expiry badge ── */
-    .expiry-row { margin-bottom: 44px; }
-
-    .expiry-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #0d0d0d;
-      border: 1px solid #1e1e1e;
-      border-radius: 4px;
-      padding: 6px 12px;
-    }
-
-    .expiry-badge svg { opacity: 0.35; flex-shrink: 0; }
-
-    .expiry-badge span {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      color: #666;
-      letter-spacing: 0.04em;
-    }
-
-    .expiry-badge strong { color: #777; font-weight: 500; }
-
-    /* ── Notice ── */
-    .notice {
-      background: #0f0f0f;
-      border: 1px solid #1c1c1c;
-      border-left: 2px solid #2a2a2a;
-      padding: 18px 20px;
-      border-radius: 2px;
-      margin-bottom: 44px;
-    }
-
-    .notice-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .notice-icon { width: 14px; height: 14px; opacity: 0.4; flex-shrink: 0; }
-
-    .notice-title {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #666;
-    }
-
-    .notice-text {
-      font-size: 13px;
-      line-height: 1.65;
-      color: #666;
-    }
-
-    .notice-text a { color: #777; text-decoration: underline; text-underline-offset: 2px; }
-
-    /* ── Footer ── */
-    .footer {
-      padding: 32px 52px 40px;
-      border-top: 1px solid #1a1a1a;
-    }
-
-    .footer-grid {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 24px;
-    }
-
-    .footer-links { display: flex; gap: 20px; }
-
-    .footer-links a {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #2e2e2e;
-      text-decoration: none;
-    }
-
-    .footer-copy {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #2a2a2a;
-      text-align: right;
-    }
-
-    .footer-bottom {
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid #161616;
-    }
-
-    .footer-addr {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #252525;
-      line-height: 1.7;
-    }
-
-    /* Responsive */
-    @media (max-width: 540px) {
-      .card-inner { padding: 36px 24px 32px; }
-      .footer { padding: 24px 24px 32px; }
-      .headline { font-size: 26px; }
-      .footer-grid { flex-direction: column; }
-      .footer-copy { text-align: left; }
-      .shield-block { flex-direction: column; }
-      .code-value { font-size: 30px; letter-spacing: 0.2em; text-indent: 0.2em; }
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <title>Verify Your Account — Vorn</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style type="text/css">
+    body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
+    table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
+    img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;}
+    body{margin:0!important;padding:0!important;width:100%!important;background-color:#0a0a0a;}
+    @media only screen and (max-width:600px){
+      .email-wrapper{width:100%!important;}
+      .card-inner-td{padding:36px 24px 32px!important;}
+      .footer-td{padding:24px!important;}
+      .headline-text{font-size:26px!important;}
+      .code-text{font-size:34px!important;letter-spacing:8px!important;}
     }
   </style>
 </head>
-<body>
-  <div class="wrapper">
+<body style="margin:0;padding:0;background-color:#0a0a0a;width:100%;">
 
-    <!-- Logo Header -->
-    <div class="header">
-      <div class="logo-mark">
-        <svg width="200" height="160" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="160" fill="#0a0a0a"/>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0a;">
+  <tr><td align="center" style="padding:48px 16px;">
+    <table class="email-wrapper" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
 
-  <!-- Left — wide squat oval -->
-  <ellipse cx="52" cy="88" rx="38" ry="33" fill="#ffffff"/>
+      <!-- LOGO -->
+      <tr><td style="padding-bottom:32px;">
+        <img src="data:image/png;base64,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" width="150" height="30" alt="Vorn" style="display:block;border:0;outline:none;"/>
+      </td></tr>
 
-  <!-- Center — tall rounded pill -->
-  <rect x="97" y="38" width="38" height="84" rx="19" fill="#ffffff"/>
+      <!-- CARD -->
+      <tr><td style="background-color:#131313;border:1px solid #222222;border-radius:8px;overflow:hidden;">
 
-  <!-- Right — tall teardrop leaning -->
-  <path
-    d="M162 18
-       C162 18 188 22 190 56
-       C192 86 180 114 172 121
-       C164 128 155 128 147 121
-       C139 114 136 95 138 70
-       C140 43 152 18 162 18 Z"
-    fill="#ffffff"
-    transform="rotate(7, 162, 72)"
-  />
-</svg>
-      </div>
-      <div class="logo-text">SQLCore</div>
-    </div>
+        <!-- Accent bar -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td width="10%" height="3" style="background-color:#ffffff;"></td>
+            <td width="50%" height="3" style="background-color:#3a3a3a;"></td>
+            <td width="40%" height="3" style="background-color:#131313;"></td>
+          </tr>
+        </table>
 
-    <!-- Main Card -->
-    <div class="card">
-      <div class="card-bg-pattern"></div>
+        <!-- CONTENT -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td class="card-inner-td" style="padding:52px 52px 44px;">
 
-      <div class="card-inner">
+            <!-- Tag pill -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:32px;">
+              <tr><td style="background-color:#1e1e1e;border-radius:20px;padding:6px 14px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="padding-right:7px;vertical-align:middle;"><div style="width:6px;height:6px;border-radius:50%;background-color:#ffffff;"></div></td>
+                    <td style="vertical-align:middle;"><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;color:#888888;letter-spacing:1.8px;text-transform:uppercase;">Identity Verification</span></td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
 
-        <!-- Tag -->
-        <div class="tag">
-          <span class="tag-dot"></span>
-          Identity Verification
-        </div>
+            <!-- Greeting -->
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:400;color:#666666;margin:0 0 10px 0;">Hello, {userName}</p>
 
-        <!-- Greeting + Headline -->
-        <p class="greeting">Hello, {userName}</p>
-        <h1 class="headline">Verify your<br><em>identity.</em></h1>
+            <!-- Headline -->
+            <h1 class="headline-text" style="font-family:'Inter',Arial,sans-serif;font-size:34px;font-weight:800;color:#ffffff;margin:0 0 20px 0;line-height:1.1;letter-spacing:-1px;">Verify your identity.</h1>
 
-        <p class="body-text">
-          We received a sign-in attempt for your <strong>SQLCore</strong> account.
-          Use the one-time code below to complete authentication. It expires shortly —
-          do not share it with anyone.
-        </p>
+            <!-- Body -->
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:400;color:#888888;line-height:1.75;margin:0 0 40px 0;">
+              We received a sign-in attempt for your <span style="color:#cccccc;font-weight:600;">Vorn</span> account. Use the 6-digit code below to complete verification. It expires in 30 minutes — do not share it with anyone.
+            </p>
 
-        <!-- Divider -->
-        <div class="divider">
-          <div class="divider-line"></div>
-          <div class="divider-label">One-time code</div>
-          <div class="divider-line"></div>
-        </div>
+            <!-- Divider -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#222222;"></td></tr>
+            </table>
 
-        <!-- Shield visual block -->
-        <div class="shield-block">
-          <div class="shield-icon-wrap">
-            <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M13 2L4 6V13C4 17.97 8.02 22.56 13 24C17.98 22.56 22 17.97 22 13V6L13 2Z" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
-              <path d="M9 13L11.5 15.5L17 10" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="shield-text">
-            <div class="shield-title">Verification requested</div>
-            <div class="shield-sub">
-              For <strong>{userEmail}</strong> · <strong>{requestTime}</strong>
-            </div>
-          </div>
-        </div>
+            <!-- Verification requested block -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1a1a1a;border-radius:8px;margin-bottom:20px;">
+              <tr>
+                <td width="4" style="background-color:#ffffff;border-radius:8px 0 0 8px;"></td>
+                <td width="56" style="padding:18px 0 18px 20px;vertical-align:middle;">
+                  <table role="presentation" width="36" height="36" cellpadding="0" cellspacing="0" border="0" style="width:36px;height:36px;background-color:#262626;border-radius:8px;">
+                    <tr><td align="center" valign="middle" style="font-family:'Inter',Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;">&#10003;</td></tr>
+                  </table>
+                </td>
+                <td style="padding:18px 20px;vertical-align:middle;">
+                  <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#cccccc;margin:0 0 3px 0;">Verification requested</p>
+                  <p style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#555555;margin:0;">
+                    For <span style="color:#888888;font-weight:500;">{userEmail}</span>
+                    &nbsp;&middot;&nbsp;
+                    <span style="color:#888888;font-weight:500;">{requestTime}</span>
+                  </p>
+                </td>
+              </tr>
+            </table>
 
-        <!-- Code block -->
-        <div class="code-section">
-          <div class="code-label">Your one-time code</div>
-          <div class="code-box">
-            <div class="code-value">{verificationCode}</div>
-            <div class="code-meta">
-              <div class="code-expires">
-                <span>Expires in 30 min</span>
-                <span class="code-expires-dot"></span>
-                <span>Single use</span>
-              </div>
-            </div>
-          </div>
-        </div>
+            <!-- Code label -->
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;color:#555555;letter-spacing:2px;text-transform:uppercase;margin:0 0 10px 0;">Your 6-digit code</p>
 
-        <!-- CTA -->
-        <div class="cta-wrap">
-          <a href="#" class="cta-btn">Verify my account</a>
-        </div>
+            <!-- Code box -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1a1a1a;border-radius:8px;margin-bottom:10px;">
+              <tr><td align="center" style="padding:40px 24px 32px 24px;">
+                <p class="code-text" style="font-family:'Inter',Arial,sans-serif;font-size:52px;font-weight:800;color:#ffffff;letter-spacing:16px;margin:0 0 18px 0;text-align:center;line-height:1;">{verificationCode}</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+                  <tr>
+                    <td style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#555555;padding:0 10px;">Expires in 30 min</td>
+                    <td style="font-family:'Inter',Arial,sans-serif;font-size:12px;color:#333333;padding:0;">&middot;</td>
+                    <td style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#555555;padding:0 10px;">Single use</td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
 
-        <!-- Expiry badge -->
-        <div class="expiry-row">
-          <div class="expiry-badge">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <circle cx="6" cy="6" r="5" stroke="#fff" stroke-width="1"/>
-              <line x1="6" y1="3" x2="6" y2="6.5" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
-              <line x1="6" y1="6.5" x2="8.2" y2="8" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
-            </svg>
-            <span>Code valid for <strong>30 minutes</strong> · Single use only</span>
-          </div>
-        </div>
+            <!-- CTA -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 40px 0;">
+              <tr><td style="border-radius:6px;background-color:#ffffff;">
+                <a href="#" style="display:inline-block;font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#000000;text-decoration:none;padding:14px 32px;border-radius:6px;letter-spacing:-0.2px;">Verify my account &nbsp;&#8594;</a>
+              </td></tr>
+            </table>
 
-        <!-- Notice -->
-        <div class="notice">
-          <div class="notice-header">
-            <svg class="notice-icon" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1L1.5 3.5V7C1.5 10.08 4 12.95 7 13.5C10 12.95 12.5 10.08 12.5 7V3.5L7 1Z" stroke="#fff" stroke-width="1"/>
-              <line x1="7" y1="5" x2="7" y2="8" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
-              <circle cx="7" cy="10" r="0.6" fill="#fff"/>
-            </svg>
-            <div class="notice-title">Didn't request this?</div>
-          </div>
-          <p class="notice-text">
-            If you didn't attempt to sign in, your account may be at risk. We recommend you
-            <a href="#">change your password</a> immediately and <a href="#">contact support</a> if
-            you suspect unauthorized access. SQLCore will never ask for this code via phone or chat.
-          </p>
-        </div>
+            <!-- Divider -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#1e1e1e;"></td></tr>
+            </table>
 
-      </div><!-- /.card-inner -->
+            <!-- Notice -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#161616;border-radius:8px;border-left:3px solid #333333;">
+              <tr><td style="padding:16px 20px;">
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;color:#666666;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 8px 0;">Didn't request this?</p>
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:13px;font-weight:400;color:#555555;line-height:1.7;margin:0;">
+                  If you didn't attempt to sign in, your account may be at risk.
+                  <a href="#" style="color:#888888;text-decoration:underline;font-weight:500;">Change your password</a> immediately and
+                  <a href="#" style="color:#888888;text-decoration:underline;font-weight:500;">contact support</a> if you suspect unauthorized access.
+                </p>
+              </td></tr>
+            </table>
 
-      <!-- Footer -->
-      <div class="footer">
-        <div class="footer-grid">
-          <div class="footer-links">
-            <a href="#">privacy</a>
-            <a href="#">terms</a>
-            <a href="#">docs</a>
-            <a href="#">unsubscribe</a>
-          </div>
-          <div class="footer-copy">
-            © 2025 SQLCore, Inc.<br>All rights reserved.
-          </div>
-        </div>
-        <div class="footer-bottom">
-          <div class="footer-addr">
-            SQLCore, Inc. · 742 Database Drive, Suite 0x1F · San Francisco, CA 94105<br>
-            This email was sent to {userEmail} because a sign-in was attempted on this account.
-          </div>
-        </div>
-      </div>
+          </td></tr>
+        </table>
 
-    </div><!-- /.card -->
+        <!-- FOOTER -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #1e1e1e;">
+          <tr><td class="footer-td" style="padding:24px 52px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
+              <tr>
+                <td>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Privacy</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Terms</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Docs</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;">Unsubscribe</a>
+                </td>
+                <td style="text-align:right;">
+                  <span style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;">&#169; 2025 Vorn, Inc.</span>
+                </td>
+              </tr>
+            </table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+              <tr><td height="1" style="background-color:#1a1a1a;"></td></tr>
+            </table>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:400;color:#3a3a3a;line-height:1.6;margin:0;">
+              Vorn, Inc. &#183; San Francisco, CA 94105<br/>
+              This email was sent to {userEmail} because a sign-in was attempted on this account.
+            </p>
+          </td></tr>
+        </table>
 
-  </div><!-- /.wrapper -->
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+
 </body>
 </html>`;
 
@@ -805,1094 +403,267 @@ export const verificationEmailTest = `<!DOCTYPE html>
 </html>`;
 
 export const resetPasswordEmailTemplate = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
   <title>Reset Your Password — Vorn</title>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background-color: #0a0a0a;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      color: #f0f0f0;
-      padding: 48px 16px;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .wrapper {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* ── Header / Logo ── */
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 40px;
-    }
-
-    .logo-mark {
-      width: 44px;
-      height: 44px;
-      position: relative;
-      flex-shrink: 0;
-    }
-
-    .logo-mark svg {
-      width: 100%;
-      height: 100%;
-    }
-
-    .logo-text {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.03em;
-      color: #ffffff;
-    }
-
-    /* ── Main Card ── */
-    .card {
-      background: #111111;
-      border: 1px solid #222222;
-      border-radius: 2px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    /* top accent line — amber tint for "warning/action" context */
-    .card::before {
-      content: '';
-      display: block;
-      height: 2px;
-      background: linear-gradient(90deg, #ffffff 0%, #555555 60%, transparent 100%);
-    }
-
-    /* subtle grid texture */
-    .card-bg-pattern {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-      background-size: 28px 28px;
-      pointer-events: none;
-    }
-
-    .card-inner {
-      position: relative;
-      padding: 56px 56px 52px;
-    }
-
-    /* ── Tag Line ── */
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #777;
-      margin-bottom: 32px;
-    }
-
-    .tag-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #fff;
-      animation: pulse 3s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%       { opacity: 0.3; transform: scale(0.7); }
-    }
-
-    /* ── Greeting ── */
-    .greeting {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 13px;
-      font-weight: 400;
-      color: #777;
-      letter-spacing: 0.01em;
-      margin-bottom: 12px;
-    }
-
-    /* ── Headline ── */
-    .headline {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 32px;
-      font-weight: 600;
-      letter-spacing: -0.04em;
-      line-height: 1.15;
-      color: #ffffff;
-      margin-bottom: 24px;
-    }
-
-    .headline em {
-      font-style: normal;
-      color: #777;
-      font-weight: 400;
-    }
-
-    /* ── Body text ── */
-    .body-text {
-      font-size: 15px;
-      line-height: 1.75;
-      color: #888;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-weight: 400;
-      max-width: 440px;
-      margin-bottom: 40px;
-    }
-
-    .body-text strong {
-      color: #bbb;
-      font-weight: 500;
-    }
-
-    /* ── Divider ── */
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 36px;
-    }
-
-    .divider-line {
-      flex: 1;
-      height: 1px;
-      background: #1e1e1e;
-    }
-
-    .divider-label {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      color: #555;
-      text-transform: uppercase;
-    }
-
-    /* ── Reset Link Box ── */
-    .link-section {
-      margin-bottom: 44px;
-    }
-
-    .link-label {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #666;
-      margin-bottom: 14px;
-    }
-
-    /* CTA Button — primary action */
-    .cta-btn {
-      display: inline-block;
-      background: #ffffff;
-      color: #000000;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      text-decoration: none;
-      padding: 14px 28px;
-      border-radius: 6px;
-      cursor: pointer;
-      margin-bottom: 20px;
-      display: block;
-      width: fit-content;
-    }
-
-    .cta-btn::after {
-      content: ' →';
-      font-size: 15px;
-    }
-
-    /* Fallback link */
-    .link-fallback {
-      margin-top: 16px;
-    }
-
-    .link-fallback p {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      color: #555;
-      letter-spacing: 0.05em;
-      margin-bottom: 8px;
-    }
-
-    .link-fallback-url {
-      font-family: 'Geist Mono', 'Courier New', monospace;
-      font-size: 11px;
-      color: #666;
-      letter-spacing: 0.02em;
-      word-break: break-all;
-      background: #0d0d0d;
-      border: 1px solid #1e1e1e;
-      border-radius: 4px;
-      padding: 10px 14px;
-      display: block;
-      line-height: 1.6;
-    }
-
-    /* ── Expiry Badge ── */
-    .expiry-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 44px;
-    }
-
-    .expiry-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #0d0d0d;
-      border: 1px solid #1e1e1e;
-      border-radius: 4px;
-      padding: 6px 12px;
-    }
-
-    .expiry-badge svg {
-      opacity: 0.4;
-      flex-shrink: 0;
-    }
-
-    .expiry-badge span {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 10px;
-      color: #777;
-      letter-spacing: 0.05em;
-    }
-
-    .expiry-badge strong {
-      color: #888;
-      font-weight: 500;
-    }
-
-    /* ── Didn't Request Notice ── */
-    .notice {
-      background: #0f0f0f;
-      border: 1px solid #1c1c1c;
-      border-left: 2px solid #2e2e2e;
-      padding: 18px 20px;
-      border-radius: 2px;
-      margin-bottom: 44px;
-    }
-
-    .notice-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .notice-icon {
-      width: 14px;
-      height: 14px;
-      opacity: 0.45;
-      flex-shrink: 0;
-    }
-
-    .notice-title {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #666;
-    }
-
-    .notice-text {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 13px;
-      line-height: 1.65;
-      color: #666;
-    }
-
-    .notice-text a {
-      color: #888;
-      text-decoration: underline;
-      text-underline-offset: 2px;
-    }
-
-    /* ── Footer ── */
-    .footer {
-      padding: 32px 52px 40px;
-      border-top: 1px solid #1a1a1a;
-    }
-
-    .footer-grid {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 24px;
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 20px;
-    }
-
-    .footer-links a {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      letter-spacing: 0;
-      color: #2e2e2e;
-      text-decoration: none;
-    }
-
-    .footer-copy {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #2a2a2a;
-      letter-spacing: 0;
-      text-align: right;
-    }
-
-    .footer-bottom {
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid #161616;
-    }
-
-    .footer-addr {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11px;
-      color: #252525;
-      letter-spacing: 0;
-      line-height: 1.7;
-    }
-
-    /* ── Gutter Numbers (decorative) ── */
-    
-
-    /* Responsive */
-    @media (max-width: 540px) {
-      .card-inner { padding: 36px 28px 32px; }
-      .footer { padding: 24px 28px 32px; }
-      .headline { font-size: 26px; }
-      .footer-grid { flex-direction: column; }
-      .footer-copy { text-align: left; }
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style type="text/css">
+    body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
+    table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
+    img{border:0;outline:none;text-decoration:none;}
+    body{margin:0!important;padding:0!important;width:100%!important;background-color:#0a0a0a;}
+    @media only screen and (max-width:600px){
+      .email-wrapper{width:100%!important;}
+      .card-inner-td{padding:36px 24px 32px!important;}
+      .footer-td{padding:24px!important;}
+      .headline-text{font-size:26px!important;}
     }
   </style>
 </head>
-<body>
-  <div class="wrapper">
+<body style="margin:0;padding:0;background-color:#0a0a0a;width:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0a;">
+  <tr><td align="center" style="padding:48px 16px;">
+    <table class="email-wrapper" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+      <tr><td style="padding-bottom:32px;">
+        <img src="data:image/png;base64,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" width="150" height="30" alt="Vorn" style="display:block;border:0;outline:none;"/>
+      </td></tr>
+      <tr><td style="background-color:#131313;border:1px solid #222222;border-radius:8px;overflow:hidden;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td width="10%" height="3" style="background-color:#ffffff;"></td>
+            <td width="50%" height="3" style="background-color:#3a3a3a;"></td>
+            <td width="40%" height="3" style="background-color:#131313;"></td>
+          </tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td class="card-inner-td" style="padding:52px 52px 44px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:32px;">
+              <tr><td style="background-color:#1e1e1e;border-radius:20px;padding:6px 14px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="padding-right:7px;vertical-align:middle;"><div style="width:6px;height:6px;border-radius:50%;background-color:#ffffff;"></div></td>
+                    <td><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;color:#888888;letter-spacing:1.8px;text-transform:uppercase;">Password Reset</span></td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
 
-    <!-- Logo Header -->
-    <div class="header">
-      <div class="logo-mark">
-        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="42" height="42" rx="1" stroke="#333" stroke-width="1"/>
-          <ellipse cx="22" cy="14" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
-          <line x1="12" y1="14" x2="12" y2="26" stroke="#fff" stroke-width="1.5"/>
-          <line x1="32" y1="14" x2="32" y2="26" stroke="#fff" stroke-width="1.5"/>
-          <ellipse cx="22" cy="26" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
-          <ellipse cx="22" cy="19" rx="10" ry="4" stroke="#555" stroke-width="1" stroke-dasharray="2 3"/>
-          <path d="M4 4 L4 8" stroke="#666" stroke-width="1"/>
-          <path d="M4 4 L8 4" stroke="#666" stroke-width="1"/>
-          <path d="M40 40 L40 36" stroke="#666" stroke-width="1"/>
-          <path d="M40 40 L36 40" stroke="#666" stroke-width="1"/>
-        </svg>
-      </div>
-      <div class="logo-text">Vorn</div>
-    </div>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:400;color:#666666;margin:0 0 10px 0;">Hello, {userName}</p>
+            <h1 class="headline-text" style="font-family:'Inter',Arial,sans-serif;font-size:34px;font-weight:800;color:#ffffff;margin:0 0 20px 0;line-height:1.1;letter-spacing:-1px;">Reset your password.</h1>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:400;color:#888888;line-height:1.75;margin:0 0 40px 0;">
+              We received a request to reset the password for your <span style="color:#cccccc;font-weight:600;">Vorn</span> account. Click the button below to set a new password. This link expires in 30 minutes.
+            </p>
 
-    <!-- Main Card -->
-    <div class="card">
-      <div class="card-bg-pattern"></div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#222222;"></td></tr>
+            </table>
 
-      <!-- decorative line numbers -->
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+              <tr><td style="border-radius:8px;background-color:#ffffff;padding:16px 28px;">
+                <a href="{resetLink}" style="display:inline-block;font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:700;color:#000000;text-decoration:none;letter-spacing:-0.2px;">Set new password &nbsp;&#8594;</a>
+              </td></tr>
+            </table>
 
-      <div class="card-inner">
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#555555;margin:0 0 16px 0;">Or copy this link into your browser:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1a1a1a;border-radius:6px;margin-bottom:40px;">
+              <tr><td style="padding:14px 18px;">
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:400;color:#666666;margin:0;word-break:break-all;line-height:1.5;">{resetLink}</p>
+              </td></tr>
+            </table>
 
-        <!-- Tag -->
-        <div class="tag">
-          <span class="tag-dot"></span>
-          Password Reset Request
-        </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#1e1e1e;"></td></tr>
+            </table>
 
-        <!-- Greeting + Headline -->
-        <p class="greeting">Hello, {userName}</p>
-        <h1 class="headline">Reset your<br><em>password.</em></h1>
-
-        <p class="body-text">
-          We received a request to reset the password for your <strong>Vorn</strong> account.
-          Click the button below to choose a new password. This link is single-use and
-          will expire shortly.
-        </p>
-
-        <!-- Divider -->
-        <div class="divider">
-          <div class="divider-line"></div>
-          <div class="divider-label">Reset link</div>
-          <div class="divider-line"></div>
-        </div>
-
-        <!-- CTA + Fallback -->
-        <div class="link-section">
-          <div class="link-label">Reset action</div>
-          <a href="{resetLink}" class="cta-btn">Set new password</a>
-
-          <div class="link-fallback">
-            <p>If the button above does not work, copy this link into your browser:</p>
-            <span class="link-fallback-url">{resetLink}</span>
-          </div>
-        </div>
-
-        <!-- Expiry Badge -->
-        <div class="expiry-row">
-          <div class="expiry-badge">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="6" cy="6" r="5" stroke="#fff" stroke-width="1"/>
-              <line x1="6" y1="3" x2="6" y2="6.5" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
-              <line x1="6" y1="6.5" x2="8.2" y2="8" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
-            </svg>
-            <span>Link expires in <strong>30 minutes</strong> · Single use only</span>
-          </div>
-        </div>
-
-        <!-- Didn't request notice -->
-        <div class="notice">
-          <div class="notice-header">
-            <svg class="notice-icon" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 1L1.5 3.5V7C1.5 10.08 4 12.95 7 13.5C10 12.95 12.5 10.08 12.5 7V3.5L7 1Z" stroke="#fff" stroke-width="1"/>
-              <line x1="7" y1="5" x2="7" y2="8" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
-              <circle cx="7" cy="10" r="0.6" fill="#fff"/>
-            </svg>
-            <div class="notice-title">Didn't request this?</div>
-          </div>
-          <p class="notice-text">
-            If you didn't request a password reset, you can safely ignore this email — your password
-            will remain unchanged. If you're concerned about your account's security,
-            please <a href="#">contact our support team</a> immediately.
-          </p>
-        </div>
-
-      </div><!-- /.card-inner -->
-
-      <!-- Footer -->
-      <div class="footer">
-        <div class="footer-grid">
-          <div class="footer-links">
-            <a href="#">privacy</a>
-            <a href="#">terms</a>
-            <a href="#">docs</a>
-            <a href="#">unsubscribe</a>
-          </div>
-          <div class="footer-copy">
-            © 2025 Vorn, Inc.<br>All rights reserved.
-          </div>
-        </div>
-        <div class="footer-bottom">
-          <div class="footer-addr">
-            Vorn, Inc. · 742 Database Drive, Suite 0x1F · San Francisco, CA 94105<br>
-            This email was sent to {userEmail} because a password reset was requested for this account.
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /.card -->
-
-  </div><!-- /.wrapper -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#161616;border-radius:8px;border-left:3px solid #333333;">
+              <tr><td style="padding:16px 20px;">
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;color:#666666;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 8px 0;">Didn't request this?</p>
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:13px;font-weight:400;color:#555555;line-height:1.7;margin:0;">
+                  If you didn't request a password reset, you can safely ignore this email. Your password will not be changed unless you click the link above.
+                  <a href="#" style="color:#888888;text-decoration:underline;font-weight:500;">Contact support</a> if you have concerns.
+                </p>
+              </td></tr>
+            </table>
+          </td></tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #1e1e1e;">
+          <tr><td class="footer-td" style="padding:24px 52px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
+              <tr>
+                <td>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Privacy</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Terms</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Docs</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;">Unsubscribe</a>
+                </td>
+                <td style="text-align:right;">
+                  <span style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;">&#169; 2025 Vorn, Inc.</span>
+                </td>
+              </tr>
+            </table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+              <tr><td height="1" style="background-color:#1a1a1a;"></td></tr>
+            </table>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:400;color:#3a3a3a;line-height:1.6;margin:0;">
+              Vorn, Inc. &#183; San Francisco, CA 94105<br/>
+              This email was sent to {userEmail} because a password reset was requested.
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>`;
 
 // this maybe wrong , maybe need to remove it
 
-// export const forgotPasswordEmailTemplate = `<!DOCTYPE html>
-// <html lang="en">
-// <head>
-//   <meta charset="UTF-8" />
-//   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-//   <title>Forgot Password — SQLCore</title>
-//   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
-//   <style>
-//     * { margin: 0; padding: 0; box-sizing: border-box; }
-
-//     body {
-//       background-color: #0a0a0a;
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       color: #f0f0f0;
-//       padding: 48px 16px;
-//       -webkit-font-smoothing: antialiased;
-//     }
-
-//     .wrapper {
-//       max-width: 600px;
-//       margin: 0 auto;
-//     }
-
-//     /* ── Header / Logo ── */
-//     .header {
-//       display: flex;
-//       align-items: center;
-//       gap: 14px;
-//       margin-bottom: 40px;
-//     }
-
-//     .logo-mark {
-//       width: 44px;
-//       height: 44px;
-//       flex-shrink: 0;
-//     }
-
-//     .logo-mark svg { width: 100%; height: 100%; }
-
-//     .logo-text {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 20px;
-//       font-weight: 600;
-//       letter-spacing: -0.03em;
-//       color: #ffffff;
-//     }
-
-//     /* ── Card ── */
-//     .card {
-//       background: #111111;
-//       border: 1px solid #222222;
-//       border-radius: 2px;
-//       overflow: hidden;
-//       position: relative;
-//     }
-
-//     .card::before {
-//       content: '';
-//       display: block;
-//       height: 2px;
-//       background: linear-gradient(90deg, #ffffff 0%, #555555 60%, transparent 100%);
-//     }
-
-//     .card-bg-pattern {
-//       position: absolute;
-//       inset: 0;
-//       background-image:
-//         linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-//         linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-//       background-size: 28px 28px;
-//       pointer-events: none;
-//     }
-
-//     .card-inner {
-//       position: relative;
-//       padding: 56px 56px 52px;
-//     }
-
-//     /* ── Decorative line numbers ── */
-
-//     /* ── Tag ── */
-//     .tag {
-//       display: inline-flex;
-//       align-items: center;
-//       gap: 8px;
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 10px;
-//       letter-spacing: 0.18em;
-//       text-transform: uppercase;
-//       color: #777;
-//       margin-bottom: 32px;
-//     }
-
-//     .tag-dot {
-//       width: 6px;
-//       height: 6px;
-//       border-radius: 50%;
-//       background: #fff;
-//       animation: blink 2s ease-in-out infinite;
-//     }
-
-//     @keyframes blink {
-//       0%, 100% { opacity: 1; transform: scale(1); }
-//       50%       { opacity: 0.25; transform: scale(0.65); }
-//     }
-
-//     /* ── Greeting ── */
-//     .greeting {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 13px;
-//       color: #777;
-//       letter-spacing: 0.01em;
-//       margin-bottom: 12px;
-//     }
-
-//     /* ── Headline ── */
-//     .headline {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 32px;
-//       font-weight: 600;
-//       letter-spacing: -0.04em;
-//       line-height: 1.15;
-//       color: #ffffff;
-//       margin-bottom: 24px;
-//     }
-
-//     .headline em {
-//       font-style: normal;
-//       color: #777;
-//       font-weight: 400;
-//     }
-
-//     /* ── Body text ── */
-//     .body-text {
-//       font-size: 15px;
-//       line-height: 1.75;
-//       color: #888;
-//       max-width: 440px;
-//       margin-bottom: 40px;
-//     }
-
-//     .body-text strong { color: #bbb; font-weight: 500; }
-
-//     /* ── Divider ── */
-//     .divider {
-//       display: flex;
-//       align-items: center;
-//       gap: 16px;
-//       margin-bottom: 36px;
-//     }
-
-//     .divider-line { flex: 1; height: 1px; background: #1e1e1e; }
-
-//     .divider-label {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 9px;
-//       letter-spacing: 0.2em;
-//       color: #555;
-//       text-transform: uppercase;
-//     }
-
-//     /* ── Key visual — lock icon block ── */
-//     .lock-block {
-//       display: flex;
-//       align-items: center;
-//       gap: 20px;
-//       background: #000;
-//       border: 1px solid #1e1e1e;
-//       border-radius: 2px;
-//       padding: 24px 28px;
-//       margin-bottom: 32px;
-//       position: relative;
-//       overflow: hidden;
-//     }
-
-//     /* corner accents */
-//     .lock-block::before, .lock-block::after {
-//       content: '';
-//       position: absolute;
-//       width: 14px;
-//       height: 14px;
-//     }
-//     .lock-block::before { top: -1px; left: -1px; border-top: 2px solid #fff; border-left: 2px solid #fff; }
-//     .lock-block::after  { bottom: -1px; right: -1px; border-bottom: 2px solid #fff; border-right: 2px solid #fff; }
-
-//     .lock-icon-wrap {
-//       flex-shrink: 0;
-//       width: 52px;
-//       height: 52px;
-//       border: 1px solid #2a2a2a;
-//       border-radius: 50%;
-//       display: flex;
-//       align-items: center;
-//       justify-content: center;
-//     }
-
-//     .lock-icon-wrap svg { opacity: 0.85; }
-
-//     .lock-text { flex: 1; }
-
-//     .lock-title {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 14px;
-//       font-weight: 500;
-//       color: #ccc;
-//       letter-spacing: -0.02em;
-//       margin-bottom: 4px;
-//     }
-
-//     .lock-sub {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 10px;
-//       color: #666;
-//       letter-spacing: 0.05em;
-//     }
-
-//     .lock-sub strong { color: #777; font-weight: 500; }
-
-//     /* ── Steps ── */
-//     .steps {
-//       display: flex;
-//       flex-direction: column;
-//       gap: 0;
-//       margin-bottom: 40px;
-//     }
-
-//     .step {
-//       display: flex;
-//       align-items: flex-start;
-//       gap: 16px;
-//       padding: 14px 0;
-//       border-bottom: 1px solid #161616;
-//     }
-
-//     .step:last-child { border-bottom: none; }
-
-//     .step-num {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 10px;
-//       color: #555;
-//       letter-spacing: 0.1em;
-//       flex-shrink: 0;
-//       padding-top: 1px;
-//       width: 28px;
-//     }
-
-//     .step-content { flex: 1; }
-
-//     .step-title {
-//       font-size: 13px;
-//       font-weight: 500;
-//       color: #bbb;
-//       letter-spacing: -0.01em;
-//       margin-bottom: 2px;
-//     }
-
-//     .step-desc {
-//       font-size: 13px;
-//       color: #666;
-//       line-height: 1.6;
-//     }
-
-//     /* ── CTA ── */
-//     .cta-wrap { margin-bottom: 36px; }
-
-//     .cta-btn {
-//       display: inline-block;
-//       background: #ffffff;
-//       color: #000000;
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 14px;
-//       font-weight: 500;
-//       letter-spacing: -0.01em;
-//       text-decoration: none;
-//       padding: 14px 28px;
-//       border-radius: 6px;
-//       cursor: pointer;
-//     }
-
-//     .cta-btn::after { content: ' →'; font-size: 15px; }
-
-//     /* ── Fallback link ── */
-//     .link-fallback { margin-top: 16px; }
-
-//     .link-fallback p {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 10px;
-//       color: #555;
-//       letter-spacing: 0.05em;
-//       margin-bottom: 8px;
-//     }
-
-//     .link-fallback-url {
-//       font-family: 'Geist Mono', 'Courier New', monospace;
-//       font-size: 11px;
-//       color: #666;
-//       word-break: break-all;
-//       background: #0d0d0d;
-//       border: 1px solid #1e1e1e;
-//       border-radius: 4px;
-//       padding: 10px 14px;
-//       display: block;
-//       line-height: 1.6;
-//     }
-
-//     /* ── Expiry row ── */
-//     .expiry-row {
-//       margin-top: 20px;
-//       margin-bottom: 44px;
-//     }
-
-//     .expiry-badge {
-//       display: inline-flex;
-//       align-items: center;
-//       gap: 6px;
-//       background: #0d0d0d;
-//       border: 1px solid #1e1e1e;
-//       border-radius: 4px;
-//       padding: 6px 12px;
-//     }
-
-//     .expiry-badge svg { opacity: 0.35; flex-shrink: 0; }
-
-//     .expiry-badge span {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 10px;
-//       color: #666;
-//       letter-spacing: 0.04em;
-//     }
-
-//     .expiry-badge strong { color: #777; font-weight: 500; }
-
-//     /* ── Notice ── */
-//     .notice {
-//       background: #0f0f0f;
-//       border: 1px solid #1c1c1c;
-//       border-left: 2px solid #2a2a2a;
-//       padding: 18px 20px;
-//       border-radius: 2px;
-//       margin-bottom: 44px;
-//     }
-
-//     .notice-header {
-//       display: flex;
-//       align-items: center;
-//       gap: 8px;
-//       margin-bottom: 8px;
-//     }
-
-//     .notice-icon { width: 14px; height: 14px; opacity: 0.4; flex-shrink: 0; }
-
-//     .notice-title {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 9px;
-//       letter-spacing: 0.2em;
-//       text-transform: uppercase;
-//       color: #666;
-//     }
-
-//     .notice-text {
-//       font-size: 13px;
-//       line-height: 1.65;
-//       color: #666;
-//     }
-
-//     .notice-text a { color: #777; text-decoration: underline; text-underline-offset: 2px; }
-
-//     /* ── Footer ── */
-//     .footer {
-//       padding: 32px 52px 40px;
-//       border-top: 1px solid #1a1a1a;
-//     }
-
-//     .footer-grid {
-//       display: flex;
-//       justify-content: space-between;
-//       align-items: flex-start;
-//       gap: 24px;
-//     }
-
-//     .footer-links { display: flex; gap: 20px; }
-
-//     .footer-links a {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 11px;
-//       color: #2e2e2e;
-//       text-decoration: none;
-//     }
-
-//     .footer-copy {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 11px;
-//       color: #2a2a2a;
-//       text-align: right;
-//     }
-
-//     .footer-bottom {
-//       margin-top: 24px;
-//       padding-top: 20px;
-//       border-top: 1px solid #161616;
-//     }
-
-//     .footer-addr {
-//       font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-//       font-size: 11px;
-//       color: #252525;
-//       line-height: 1.7;
-//     }
-
-//     /* Responsive */
-//     @media (max-width: 540px) {
-//       .card-inner { padding: 36px 28px 32px; }
-//       .footer { padding: 24px 28px 32px; }
-//       .headline { font-size: 26px; }
-//       .footer-grid { flex-direction: column; }
-//       .footer-copy { text-align: left; }
-//       .lock-block { flex-direction: column; }
-//     }
-//   </style>
-// </head>
-// <body>
-//   <div class="wrapper">
-
-//     <!-- Logo Header -->
-//     <div class="header">
-//       <div class="logo-mark">
-//         <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-//           <rect x="1" y="1" width="42" height="42" rx="1" stroke="#333" stroke-width="1"/>
-//           <ellipse cx="22" cy="14" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
-//           <line x1="12" y1="14" x2="12" y2="26" stroke="#fff" stroke-width="1.5"/>
-//           <line x1="32" y1="14" x2="32" y2="26" stroke="#fff" stroke-width="1.5"/>
-//           <ellipse cx="22" cy="26" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
-//           <ellipse cx="22" cy="19" rx="10" ry="4" stroke="#555" stroke-width="1" stroke-dasharray="2 3"/>
-//           <path d="M4 4 L4 8" stroke="#666" stroke-width="1"/>
-//           <path d="M4 4 L8 4" stroke="#666" stroke-width="1"/>
-//           <path d="M40 40 L40 36" stroke="#666" stroke-width="1"/>
-//           <path d="M40 40 L36 40" stroke="#666" stroke-width="1"/>
-//         </svg>
-//       </div>
-//       <div class="logo-text">SQLCore</div>
-//     </div>
-
-//     <!-- Main Card -->
-//     <div class="card">
-//       <div class="card-bg-pattern"></div>
-
-//       <div class="card-inner">
-
-//         <!-- Tag -->
-//         <div class="tag">
-//           <span class="tag-dot"></span>
-//           Account Recovery
-//         </div>
-
-//         <!-- Greeting + Headline -->
-//         <p class="greeting">Hello, {userName}</p>
-//         <h1 class="headline">Forgot your<br><em>password?</em></h1>
-
-//         <p class="body-text">
-//           No worries — it happens to the best of us. We received a request to recover
-//           access to your <strong>SQLCore</strong> account. Follow the steps below to
-//           get back in.
-//         </p>
-
-//         <!-- Divider -->
-//         <div class="divider">
-//           <div class="divider-line"></div>
-//           <div class="divider-label">Recovery</div>
-//           <div class="divider-line"></div>
-//         </div>
-
-//         <!-- Lock visual block -->
-//         <div class="lock-block">
-//           <div class="lock-icon-wrap">
-//             <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-//               <!-- shackle -->
-//               <path d="M8 11V8C8 5.24 10.24 3 13 3C15.76 3 18 5.24 18 8V11" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-//               <!-- body -->
-//               <rect x="5" y="11" width="16" height="12" rx="2" stroke="#fff" stroke-width="1.5"/>
-//               <!-- keyhole -->
-//               <circle cx="13" cy="17" r="2" stroke="#fff" stroke-width="1.2"/>
-//               <line x1="13" y1="19" x2="13" y2="21" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
-//             </svg>
-//           </div>
-//           <div class="lock-text">
-//             <div class="lock-title">Access recovery initiated</div>
-//             <div class="lock-sub">
-//               Requested for <strong>{userEmail}</strong> · <strong>{requestTime}</strong>
-//             </div>
-//           </div>
-//         </div>
-
-//         <!-- Steps -->
-//         <div class="steps">
-//           <div class="step">
-//             <div class="step-num">01.</div>
-//             <div class="step-content">
-//               <div class="step-title">Click the recovery link below</div>
-//               <div class="step-desc">Opens a secure page to create a new password for your account.</div>
-//             </div>
-//           </div>
-//           <div class="step">
-//             <div class="step-num">02.</div>
-//             <div class="step-content">
-//               <div class="step-title">Choose a strong new password</div>
-//               <div class="step-desc">At least 12 characters. Mix letters, numbers, and symbols.</div>
-//             </div>
-//           </div>
-//           <div class="step">
-//             <div class="step-num">03.</div>
-//             <div class="step-content">
-//               <div class="step-title">Sign back in to SQLCore</div>
-//               <div class="step-desc">All active sessions will be logged out automatically for your security.</div>
-//             </div>
-//           </div>
-//         </div>
-
-//         <!-- CTA -->
-//         <div class="cta-wrap">
-//           <div style="font-family:'Geist Mono','Courier New',monospace;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:#3a3a3a;margin-bottom:14px;">Recovery link</div>
-//           <a href="{recoveryLink}" class="cta-btn">Recover my account</a>
-
-//           <div class="link-fallback">
-//             <p>Or paste this link into your browser:</p>
-//             <span class="link-fallback-url">{recoveryLink}</span>
-//           </div>
-//         </div>
-
-//         <!-- Expiry -->
-//         <div class="expiry-row">
-//           <div class="expiry-badge">
-//             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-//               <circle cx="6" cy="6" r="5" stroke="#fff" stroke-width="1"/>
-//               <line x1="6" y1="3" x2="6" y2="6.5" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
-//               <line x1="6" y1="6.5" x2="8.2" y2="8" stroke="#fff" stroke-width="1" stroke-linecap="round"/>
-//             </svg>
-//             <span>Link expires in <strong>15 minutes</strong> · Single use only</span>
-//           </div>
-//         </div>
-
-//         <!-- Notice -->
-//         <div class="notice">
-//           <div class="notice-header">
-//             <svg class="notice-icon" viewBox="0 0 14 14" fill="none">
-//               <path d="M7 1L1.5 3.5V7C1.5 10.08 4 12.95 7 13.5C10 12.95 12.5 10.08 12.5 7V3.5L7 1Z" stroke="#fff" stroke-width="1"/>
-//               <line x1="7" y1="5" x2="7" y2="8" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
-//               <circle cx="7" cy="10" r="0.6" fill="#fff"/>
-//             </svg>
-//             <div class="notice-title">Didn't request this?</div>
-//           </div>
-//           <p class="notice-text">
-//             If you didn't ask to recover your account, your password is still safe — just ignore
-//             this email and nothing will change. If you suspect unauthorized access, please
-//             <a href="#">contact support</a> right away.
-//           </p>
-//         </div>
-
-//       </div><!-- /.card-inner -->
-
-//       <!-- Footer -->
-//       <div class="footer">
-//         <div class="footer-grid">
-//           <div class="footer-links">
-//             <a href="#">privacy</a>
-//             <a href="#">terms</a>
-//             <a href="#">docs</a>
-//             <a href="#">unsubscribe</a>
-//           </div>
-//           <div class="footer-copy">
-//             © 2025 SQLCore, Inc.<br>All rights reserved.
-//           </div>
-//         </div>
-//         <div class="footer-bottom">
-//           <div class="footer-addr">
-//             SQLCore, Inc. · 742 Database Drive, Suite 0x1F · San Francisco, CA 94105<br>
-//             This email was sent to {userEmail} because a password recovery was requested for this account.
-//           </div>
-//         </div>
-//       </div>
-
-//     </div><!-- /.card -->
-
-//   </div><!-- /.wrapper -->
-// </body>
-// </html>`;
+export const forgotPassEmail = `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <title>Account Recovery — Vorn</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
+    table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
+    img{border:0;outline:none;text-decoration:none;}
+    body{margin:0!important;padding:0!important;width:100%!important;background-color:#0a0a0a;}
+    @media only screen and (max-width:600px){
+      .email-wrapper{width:100%!important;}
+      .card-inner-td{padding:36px 24px 32px!important;}
+      .footer-td{padding:24px!important;}
+      .headline-text{font-size:26px!important;}
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#0a0a0a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0a;">
+  <tr><td align="center" style="padding:48px 16px;">
+    <table class="email-wrapper" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+      <tr><td style="padding-bottom:32px;">
+        <img src="data:image/png;base64,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" width="150" height="30" alt="Vorn" style="display:block;border:0;outline:none;"/>
+      </td></tr>
+      <tr><td style="background-color:#131313;border:1px solid #222222;border-radius:8px;overflow:hidden;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td width="10%" height="3" style="background-color:#ffffff;"></td>
+            <td width="50%" height="3" style="background-color:#3a3a3a;"></td>
+            <td width="40%" height="3" style="background-color:#131313;"></td>
+          </tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td class="card-inner-td" style="padding:52px 52px 44px;">
+
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:32px;">
+              <tr><td style="background-color:#1e1e1e;border-radius:20px;padding:6px 14px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="padding-right:7px;vertical-align:middle;"><div style="width:6px;height:6px;border-radius:50%;background-color:#ffffff;"></div></td>
+                    <td><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;color:#888888;letter-spacing:1.8px;text-transform:uppercase;">Account Recovery</span></td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
+
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:400;color:#666666;margin:0 0 10px 0;">Hello, {userName}</p>
+            <h1 class="headline-text" style="font-family:'Inter',Arial,sans-serif;font-size:34px;font-weight:800;color:#ffffff;margin:0 0 20px 0;line-height:1.1;letter-spacing:-1px;">Recover your account.</h1>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:400;color:#888888;line-height:1.75;margin:0 0 40px 0;">
+              We received a request to recover the <span style="color:#cccccc;font-weight:600;">Vorn</span> account associated with your email. Click the button below to confirm your email and set a new password.
+            </p>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#222222;"></td></tr>
+            </table>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1a1a1a;border-radius:8px;margin-bottom:28px;">
+              <tr>
+                <td width="4" style="background-color:#ffffff;border-radius:8px 0 0 8px;"></td>
+                <td width="56" style="padding:18px 0 18px 20px;vertical-align:middle;">
+                  <table role="presentation" width="36" height="36" cellpadding="0" cellspacing="0" border="0" style="width:36px;height:36px;background-color:#262626;border-radius:8px;">
+                    <tr><td align="center" valign="middle" style="font-family:'Inter',Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;">&#128274;</td></tr>
+                  </table>
+                </td>
+                <td style="padding:18px 20px;vertical-align:middle;">
+                  <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#cccccc;margin:0 0 3px 0;">Recovery requested</p>
+                  <p style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#555555;margin:0;">
+                    For <span style="color:#888888;font-weight:500;">{userEmail}</span>
+                    &nbsp;&middot;&nbsp;
+                    <span style="color:#888888;font-weight:500;">{requestTime}</span>
+                  </p>
+                </td>
+              </tr>
+            </table>
+
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">
+              <tr><td style="border-radius:8px;background-color:#ffffff;padding:16px 28px;">
+                <a href="{recoveryLink}" style="display:inline-block;font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:700;color:#000000;text-decoration:none;letter-spacing:-0.2px;">Recover my account &nbsp;&#8594;</a>
+              </td></tr>
+            </table>
+
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#555555;margin:0 0 16px 0;">Or copy this link into your browser:</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1a1a1a;border-radius:6px;margin-bottom:40px;">
+              <tr><td style="padding:14px 18px;">
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:400;color:#666666;margin:0;word-break:break-all;line-height:1.5;">{recoveryLink}</p>
+              </td></tr>
+            </table>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#1e1e1e;"></td></tr>
+            </table>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#161616;border-radius:8px;border-left:3px solid #333333;">
+              <tr><td style="padding:16px 20px;">
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;color:#666666;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 8px 0;">Didn't request this?</p>
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:13px;font-weight:400;color:#555555;line-height:1.7;margin:0;">
+                  If you didn't request account recovery, you can safely ignore this email.
+                  <a href="#" style="color:#888888;text-decoration:underline;font-weight:500;">Contact support</a> if you have concerns about your account security.
+                </p>
+              </td></tr>
+            </table>
+
+          </td></tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #1e1e1e;">
+          <tr><td class="footer-td" style="padding:24px 52px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
+              <tr>
+                <td>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Privacy</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Terms</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Docs</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;">Unsubscribe</a>
+                </td>
+                <td style="text-align:right;">
+                  <span style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;">&#169; 2025 Vorn, Inc.</span>
+                </td>
+              </tr>
+            </table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+              <tr><td height="1" style="background-color:#1a1a1a;"></td></tr>
+            </table>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:400;color:#3a3a3a;line-height:1.6;margin:0;">
+              Vorn, Inc. &#183; San Francisco, CA 94105<br/>
+              This email was sent to {userEmail} because account recovery was requested.
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
 
 export const accountChangeEmailTemplate = `<!DOCTYPE html>
 <html lang="en">
@@ -3032,488 +1803,261 @@ export const accountChangeEmailTemplate2 = `<!DOCTYPE html>
 </html>`;
 
 export const changeSuccessfully = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Account Updated — SQLCore</title>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <title>Account Updated — Vorn</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background-color: #0a0a0a;
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      color: #f0f0f0;
-      padding: 48px 16px;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .wrapper {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* ── Header / Logo ── */
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 40px;
-    }
-
-    .logo-mark { width: 44px; height: 44px; flex-shrink: 0; }
-    .logo-mark svg { width: 100%; height: 100%; }
-
-    .logo-text {
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.03em;
-      color: #ffffff;
-    }
-
-    /* ── Card ── */
-    .card {
-      background: #111111;
-      border: 1px solid #222222;
-      border-radius: 2px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .card::before {
-      content: '';
-      display: block;
-      height: 2px;
-      background: linear-gradient(90deg, #ffffff 0%, #555555 60%, transparent 100%);
-    }
-
-    .card-bg-pattern {
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
-      background-size: 28px 28px;
-      pointer-events: none;
-    }
-
-    .card-inner {
-      position: relative;
-      padding: 56px 56px 52px;
-    }
-
-    /* ── Tag ── */
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 10px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #777;
-      margin-bottom: 32px;
-    }
-
-    .tag-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #fff;
-    }
-
-    /* ── Greeting ── */
-    .greeting {
-      font-size: 13px;
-      color: #777;
-      margin-bottom: 12px;
-    }
-
-    /* ── Headline ── */
-    .headline {
-      font-size: 32px;
-      font-weight: 600;
-      letter-spacing: -0.04em;
-      line-height: 1.15;
-      color: #ffffff;
-      margin-bottom: 24px;
-    }
-
-    .headline em {
-      font-style: normal;
-      color: #555;
-      font-weight: 400;
-    }
-
-    /* ── Body text ── */
-    .body-text {
-      font-size: 15px;
-      line-height: 1.75;
-      color: #888;
-      max-width: 440px;
-      margin-bottom: 40px;
-    }
-
-    .body-text strong { color: #bbb; font-weight: 500; }
-
-    /* ── Divider ── */
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 36px;
-    }
-
-    .divider-line { flex: 1; height: 1px; background: #1e1e1e; }
-
-    .divider-label {
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      color: #555;
-      text-transform: uppercase;
-    }
-
-    /* ── Success block ── */
-    .success-block {
-      background: #000;
-      border: 1px solid #1e1e1e;
-      border-radius: 2px;
-      padding: 40px 32px;
-      margin-bottom: 44px;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 18px;
-    }
-
-    .success-block::before, .success-block::after {
-      content: '';
-      position: absolute;
-      width: 14px;
-      height: 14px;
-    }
-    .success-block::before { top: -1px; left: -1px; border-top: 2px solid #fff; border-left: 2px solid #fff; }
-    .success-block::after  { bottom: -1px; right: -1px; border-bottom: 2px solid #fff; border-right: 2px solid #fff; }
-
-    .success-icon-wrap {
-      width: 64px;
-      height: 64px;
-      border: 1px solid #2a2a2a;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .success-title {
-      font-size: 17px;
-      font-weight: 600;
-      color: #ffffff;
-      letter-spacing: -0.03em;
-    }
-
-    .success-time {
-      font-size: 12px;
-      color: #555;
-      letter-spacing: 0.02em;
-    }
-
-    .success-time strong { color: #777; font-weight: 500; }
-
-    /* ── CTA ── */
-    .cta-wrap { margin-bottom: 44px; }
-
-    .cta-btn {
-      display: inline-block;
-      background: #ffffff;
-      color: #000000;
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: -0.01em;
-      text-decoration: none;
-      padding: 14px 28px;
-      border-radius: 6px;
-    }
-
-    .cta-btn::after { content: ' →'; font-size: 15px; }
-
-    /* ── Notice ── */
-    .notice {
-      background: #0f0f0f;
-      border: 1px solid #1c1c1c;
-      border-left: 2px solid #2a2a2a;
-      padding: 18px 20px;
-      border-radius: 2px;
-      margin-bottom: 44px;
-    }
-
-    .notice-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .notice-icon { width: 14px; height: 14px; opacity: 0.4; flex-shrink: 0; }
-
-    .notice-title {
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #555;
-    }
-
-    .notice-text {
-      font-size: 13px;
-      line-height: 1.65;
-      color: #666;
-    }
-
-    .notice-text a { color: #777; text-decoration: underline; text-underline-offset: 2px; }
-
-    /* ── Footer ── */
-    .footer {
-      padding: 32px 56px 40px;
-      border-top: 1px solid #1a1a1a;
-    }
-
-    .footer-grid {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 24px;
-    }
-
-    .footer-links { display: flex; gap: 20px; }
-
-    .footer-links a {
-      font-size: 11px;
-      color: #2e2e2e;
-      text-decoration: none;
-    }
-
-    .footer-copy {
-      font-size: 11px;
-      color: #2a2a2a;
-      text-align: right;
-    }
-
-    .footer-bottom {
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid #161616;
-    }
-
-    .footer-addr {
-      font-size: 11px;
-      color: #252525;
-      line-height: 1.7;
-    }
-
-    /* Responsive */
-    @media (max-width: 540px) {
-      .card-inner { padding: 36px 24px 32px; }
-      .footer { padding: 24px 24px 32px; }
-      .headline { font-size: 26px; }
-      .footer-grid { flex-direction: column; }
-      .footer-copy { text-align: left; }
+    body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
+    table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
+    img{border:0;outline:none;text-decoration:none;}
+    body{margin:0!important;padding:0!important;width:100%!important;background-color:#0a0a0a;}
+    @media only screen and (max-width:600px){
+      .email-wrapper{width:100%!important;}
+      .card-inner-td{padding:36px 24px 32px!important;}
+      .footer-td{padding:24px!important;}
+      .headline-text{font-size:26px!important;}
     }
   </style>
 </head>
-<body>
-  <div class="wrapper">
+<body style="margin:0;padding:0;background-color:#0a0a0a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0a;">
+  <tr><td align="center" style="padding:48px 16px;">
+    <table class="email-wrapper" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+      <tr><td style="padding-bottom:32px;">
+        <img src="data:image/png;base64,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" width="150" height="30" alt="Vorn" style="display:block;border:0;outline:none;"/>
+      </td></tr>
+      <tr><td style="background-color:#131313;border:1px solid #222222;border-radius:8px;overflow:hidden;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td width="10%" height="3" style="background-color:#ffffff;"></td>
+            <td width="50%" height="3" style="background-color:#3a3a3a;"></td>
+            <td width="40%" height="3" style="background-color:#131313;"></td>
+          </tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td class="card-inner-td" style="padding:52px 52px 44px;">
 
-    <!-- Logo Header -->
-    <div class="header">
-      <div class="logo-mark">
-        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="42" height="42" rx="1" stroke="#333" stroke-width="1"/>
-          <ellipse cx="22" cy="14" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
-          <line x1="12" y1="14" x2="12" y2="26" stroke="#fff" stroke-width="1.5"/>
-          <line x1="32" y1="14" x2="32" y2="26" stroke="#fff" stroke-width="1.5"/>
-          <ellipse cx="22" cy="26" rx="10" ry="4" stroke="#fff" stroke-width="1.5"/>
-          <ellipse cx="22" cy="19" rx="10" ry="4" stroke="#555" stroke-width="1" stroke-dasharray="2 3"/>
-          <path d="M4 4 L4 8" stroke="#666" stroke-width="1"/>
-          <path d="M4 4 L8 4" stroke="#666" stroke-width="1"/>
-          <path d="M40 40 L40 36" stroke="#666" stroke-width="1"/>
-          <path d="M40 40 L36 40" stroke="#666" stroke-width="1"/>
-        </svg>
-      </div>
-      <div class="logo-text">SQLCore</div>
-    </div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:32px;">
+              <tr><td style="background-color:#1e1e1e;border-radius:20px;padding:6px 14px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="padding-right:7px;vertical-align:middle;"><div style="width:6px;height:6px;border-radius:50%;background-color:#ffffff;"></div></td>
+                    <td><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;color:#888888;letter-spacing:1.8px;text-transform:uppercase;">Security Notification</span></td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
 
-    <!-- ============================================================
-         VARIANT A — PASSWORD CHANGED
-         Use this when the user successfully changes their password.
-         To switch to email variant, see VARIANT B below.
-    ============================================================= -->
-    <div class="card">
-      <div class="card-bg-pattern"></div>
-      <div class="card-inner">
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:400;color:#666666;margin:0 0 10px 0;">Hello, {userName}</p>
+            <h1 class="headline-text" style="font-family:'Inter',Arial,sans-serif;font-size:34px;font-weight:800;color:#ffffff;margin:0 0 20px 0;line-height:1.1;letter-spacing:-1px;">Your {changeType} was changed.</h1>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:400;color:#888888;line-height:1.75;margin:0 0 40px 0;">
+              The {changeType} for your <span style="color:#cccccc;font-weight:600;">Vorn</span> account was successfully updated.
+              If this was you, no further action is needed.
+            </p>
 
-        <div class="tag">
-          <span class="tag-dot"></span>
-          Security Notification
-        </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#222222;"></td></tr>
+            </table>
 
-        <p class="greeting">Hello, {userName}</p>
-        <h1 class="headline">Your password<br><em>was changed.</em></h1>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1a1a1a;border-radius:8px;margin-bottom:32px;">
+              <tr>
+                <td width="4" style="background-color:#ffffff;border-radius:8px 0 0 8px;"></td>
+                <td width="56" style="padding:18px 0 18px 20px;vertical-align:middle;">
+                  <table role="presentation" width="36" height="36" cellpadding="0" cellspacing="0" border="0" style="width:36px;height:36px;background-color:#262626;border-radius:8px;">
+                    <tr><td align="center" valign="middle" style="font-family:'Inter',Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;">&#10003;</td></tr>
+                  </table>
+                </td>
+                <td style="padding:18px 20px;vertical-align:middle;">
+                  <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#cccccc;margin:0 0 3px 0;">Change confirmed</p>
+                  <p style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#555555;margin:0;">
+                    Changed on <span style="color:#888888;font-weight:500;">{changeDate}</span> at <span style="color:#888888;font-weight:500;">{changeTime}</span>
+                  </p>
+                </td>
+              </tr>
+            </table>
 
-        <p class="body-text">
-          The password for your <strong>SQLCore</strong> account has been successfully updated.
-          If this was you, no further action is needed.
-        </p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:40px;">
+              <tr><td style="border-radius:8px;background-color:#ffffff;padding:16px 28px;">
+                <a href="{dashboardLink}" style="display:inline-block;font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:700;color:#000000;text-decoration:none;letter-spacing:-0.2px;">Go to my account &nbsp;&#8594;</a>
+              </td></tr>
+            </table>
 
-        <div class="divider">
-          <div class="divider-line"></div>
-          <div class="divider-label">Confirmation</div>
-          <div class="divider-line"></div>
-        </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#1e1e1e;"></td></tr>
+            </table>
 
-        <div class="success-block">
-          <div class="success-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <circle cx="14" cy="14" r="11" stroke="#fff" stroke-width="1.5"/>
-              <path d="M9 14.5L12.5 18L19 11" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="success-title">Password updated successfully</div>
-          <div class="success-time">on <strong>{changeDate}</strong> at <strong>{changeTime}</strong></div>
-        </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#161616;border-radius:8px;border-left:3px solid #333333;">
+              <tr><td style="padding:16px 20px;">
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;color:#666666;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 8px 0;">Wasn't you?</p>
+                <p style="font-family:'Inter',Arial,sans-serif;font-size:13px;font-weight:400;color:#555555;line-height:1.7;margin:0;">
+                  If you didn't make this change, your account may be compromised.
+                  <a href="#" style="color:#888888;text-decoration:underline;font-weight:500;">Secure your account</a> immediately and
+                  <a href="#" style="color:#888888;text-decoration:underline;font-weight:500;">contact support</a> right away.
+                </p>
+              </td></tr>
+            </table>
 
-        <div class="cta-wrap">
-          <a href="{dashboardLink}" class="cta-btn">Go to my account</a>
-        </div>
+          </td></tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #1e1e1e;">
+          <tr><td class="footer-td" style="padding:24px 52px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
+              <tr>
+                <td>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Privacy</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Terms</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Docs</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;">Unsubscribe</a>
+                </td>
+                <td style="text-align:right;">
+                  <span style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;">&#169; 2025 Vorn, Inc.</span>
+                </td>
+              </tr>
+            </table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+              <tr><td height="1" style="background-color:#1a1a1a;"></td></tr>
+            </table>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:400;color:#3a3a3a;line-height:1.6;margin:0;">
+              Vorn, Inc. &#183; San Francisco, CA 94105<br/>
+              This email was sent to {userEmail} to confirm a {changeType} change on your account.
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
 
-        <div class="notice">
-          <div class="notice-header">
-            <svg class="notice-icon" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1L1.5 3.5V7C1.5 10.08 4 12.95 7 13.5C10 12.95 12.5 10.08 12.5 7V3.5L7 1Z" stroke="#fff" stroke-width="1"/>
-              <line x1="7" y1="5" x2="7" y2="8" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
-              <circle cx="7" cy="10" r="0.6" fill="#fff"/>
-            </svg>
-            <div class="notice-title">Wasn't you?</div>
-          </div>
-          <p class="notice-text">
-            If you didn't make this change, your account may be compromised.
-            <a href="{resetLink}">Reset your password immediately</a> and
-            <a href="{supportLink}">contact our support team</a> right away.
-          </p>
-        </div>
+export const welcomeEmail = `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <title>Welcome to Vorn</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}
+    table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}
+    img{border:0;outline:none;text-decoration:none;}
+    body{margin:0!important;padding:0!important;width:100%!important;background-color:#0a0a0a;}
+    @media only screen and (max-width:600px){
+      .email-wrapper{width:100%!important;}
+      .card-inner-td{padding:36px 24px 32px!important;}
+      .footer-td{padding:24px!important;}
+      .headline-text{font-size:26px!important;}
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#0a0a0a;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a0a;">
+  <tr><td align="center" style="padding:48px 16px;">
+    <table class="email-wrapper" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+      <tr><td style="padding-bottom:32px;">
+        <img src="data:image/png;base64,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" width="150" height="30" alt="Vorn" style="display:block;border:0;outline:none;"/>
+      </td></tr>
+      <tr><td style="background-color:#131313;border:1px solid #222222;border-radius:8px;overflow:hidden;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td width="10%" height="3" style="background-color:#ffffff;"></td>
+            <td width="50%" height="3" style="background-color:#3a3a3a;"></td>
+            <td width="40%" height="3" style="background-color:#131313;"></td>
+          </tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td class="card-inner-td" style="padding:52px 52px 44px;">
 
-      </div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:32px;">
+              <tr><td style="background-color:#1e1e1e;border-radius:20px;padding:6px 14px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="padding-right:7px;vertical-align:middle;"><div style="width:6px;height:6px;border-radius:50%;background-color:#ffffff;"></div></td>
+                    <td><span style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;color:#888888;letter-spacing:1.8px;text-transform:uppercase;">Welcome</span></td>
+                  </tr>
+                </table>
+              </td></tr>
+            </table>
 
-      <div class="footer">
-        <div class="footer-grid">
-          <div class="footer-links">
-            <a href="#">privacy</a>
-            <a href="#">terms</a>
-            <a href="#">docs</a>
-            <a href="#">unsubscribe</a>
-          </div>
-          <div class="footer-copy">© 2025 SQLCore, Inc.<br>All rights reserved.</div>
-        </div>
-        <div class="footer-bottom">
-          <div class="footer-addr">
-            SQLCore, Inc. · 742 Database Drive, Suite 0x1F · San Francisco, CA 94105<br>
-            This email was sent to {userEmail} to confirm a password change on your account.
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- ============================================================
-         END VARIANT A
-    ============================================================= -->
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:400;color:#666666;margin:0 0 10px 0;">Hello, {userName}</p>
+            <h1 class="headline-text" style="font-family:'Inter',Arial,sans-serif;font-size:34px;font-weight:800;color:#ffffff;margin:0 0 20px 0;line-height:1.1;letter-spacing:-1px;">Welcome to Vorn.</h1>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:400;color:#888888;line-height:1.75;margin:0 0 40px 0;">
+              Thanks for signing up! Your <span style="color:#cccccc;font-weight:600;">Vorn</span> account is ready to go. We're excited to have you with us.
+            </p>
 
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#222222;"></td></tr>
+            </table>
 
-    <!-- ============================================================
-         VARIANT B — EMAIL CHANGED
-         Use this when the user successfully changes their email.
-         To use: remove the card block above (VARIANT A) and
-         uncomment everything between the dashes below.
-    ============================================================= -->
-    <!--
-    <div class="card">
-      <div class="card-bg-pattern"></div>
-      <div class="card-inner">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1a1a1a;border-radius:8px;margin-bottom:32px;">
+              <tr>
+                <td width="4" style="background-color:#ffffff;border-radius:8px 0 0 8px;"></td>
+                <td width="56" style="padding:18px 0 18px 20px;vertical-align:middle;">
+                  <table role="presentation" width="36" height="36" cellpadding="0" cellspacing="0" border="0" style="width:36px;height:36px;background-color:#262626;border-radius:8px;">
+                    <tr><td align="center" valign="middle" style="font-family:'Inter',Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;">&#10003;</td></tr>
+                  </table>
+                </td>
+                <td style="padding:18px 20px;vertical-align:middle;">
+                  <p style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:600;color:#cccccc;margin:0 0 3px 0;">Account created</p>
+                  <p style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#555555;margin:0;">
+                    Email: <span style="color:#888888;font-weight:500;">{userEmail}</span>
+                  </p>
+                </td>
+              </tr>
+            </table>
 
-        <div class="tag">
-          <span class="tag-dot"></span>
-          Account Notification
-        </div>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:40px;">
+              <tr><td style="border-radius:8px;background-color:#ffffff;padding:16px 28px;">
+                <a href="{dashboardLink}" style="display:inline-block;font-family:'Inter',Arial,sans-serif;font-size:15px;font-weight:700;color:#000000;text-decoration:none;letter-spacing:-0.2px;">Get started &nbsp;&#8594;</a>
+              </td></tr>
+            </table>
 
-        <p class="greeting">Hello, {userName}</p>
-        <h1 class="headline">Your email<br><em>was changed.</em></h1>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+              <tr><td height="1" style="background-color:#1e1e1e;"></td></tr>
+            </table>
 
-        <p class="body-text">
-          The email address on your <strong>SQLCore</strong> account has been
-          successfully updated. Use your new address to sign in from now on.
-        </p>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:13px;font-weight:400;color:#555555;line-height:1.7;margin:0;">
+              Need help getting started? Check out our <a href="#" style="color:#888888;text-decoration:underline;font-weight:500;">docs</a> or <a href="#" style="color:#888888;text-decoration:underline;font-weight:500;">contact support</a> anytime.
+            </p>
 
-        <div class="divider">
-          <div class="divider-line"></div>
-          <div class="divider-label">Confirmation</div>
-          <div class="divider-line"></div>
-        </div>
-
-        <div class="success-block">
-          <div class="success-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <circle cx="14" cy="14" r="11" stroke="#fff" stroke-width="1.5"/>
-              <path d="M9 14.5L12.5 18L19 11" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <div class="success-title">Email updated successfully</div>
-          <div class="success-time">on <strong>{changeDate}</strong> at <strong>{changeTime}</strong></div>
-        </div>
-
-        <div class="cta-wrap">
-          <a href="{dashboardLink}" class="cta-btn">Go to my account</a>
-        </div>
-
-        <div class="notice">
-          <div class="notice-header">
-            <svg class="notice-icon" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1L1.5 3.5V7C1.5 10.08 4 12.95 7 13.5C10 12.95 12.5 10.08 12.5 7V3.5L7 1Z" stroke="#fff" stroke-width="1"/>
-              <line x1="7" y1="5" x2="7" y2="8" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
-              <circle cx="7" cy="10" r="0.6" fill="#fff"/>
-            </svg>
-            <div class="notice-title">Wasn't you?</div>
-          </div>
-          <p class="notice-text">
-            If you didn't make this change, your account may be compromised.
-            <a href="{resetLink}">Secure your account immediately</a> and
-            <a href="{supportLink}">contact our support team</a> right away.
-          </p>
-        </div>
-
-      </div>
-
-      <div class="footer">
-        <div class="footer-grid">
-          <div class="footer-links">
-            <a href="#">privacy</a>
-            <a href="#">terms</a>
-            <a href="#">docs</a>
-            <a href="#">unsubscribe</a>
-          </div>
-          <div class="footer-copy">© 2025 SQLCore, Inc.<br>All rights reserved.</div>
-        </div>
-        <div class="footer-bottom">
-          <div class="footer-addr">
-            SQLCore, Inc. · 742 Database Drive, Suite 0x1F · San Francisco, CA 94105<br>
-            This email was sent to {oldEmail} to confirm an email address change on your account.
-          </div>
-        </div>
-      </div>
-    </div>
-    -->
-    <!-- ============================================================
-         END VARIANT B
-    ============================================================= -->
-
-  </div>
+          </td></tr>
+        </table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #1e1e1e;">
+          <tr><td class="footer-td" style="padding:24px 52px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
+              <tr>
+                <td>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Privacy</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Terms</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;margin-right:20px;">Docs</a>
+                  <a href="#" style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;text-decoration:none;">Unsubscribe</a>
+                </td>
+                <td style="text-align:right;">
+                  <span style="font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:400;color:#444444;">&#169; 2025 Vorn, Inc.</span>
+                </td>
+              </tr>
+            </table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+              <tr><td height="1" style="background-color:#1a1a1a;"></td></tr>
+            </table>
+            <p style="font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:400;color:#3a3a3a;line-height:1.6;margin:0;">
+              Vorn, Inc. &#183; San Francisco, CA 94105<br/>
+              You're receiving this email because you signed up for a Vorn account.
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>`;

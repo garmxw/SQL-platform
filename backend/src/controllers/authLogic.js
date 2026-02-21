@@ -1,18 +1,19 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import dotenv from "dotenv";
 import {
   findUserBy_email_Or_username,
   create_user,
   updateLoginHistory,
+  find_user_by_token,
+  updatePassword,
 } from "../services/userQueries.js";
 import { generateVerificationCode } from "../utils/generateVerificationCode.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
-import {
-  sendVerificationEmail,
-  sendPasswordResetEmail,
-} from "../mail/utils/sendVerificationEmail.js";
+import { sendVerificationEmail } from "../mail/utils/sendVerificationEmail.js";
+import { sendPasswordResetEmail } from "../mail/utils/sendPasswordResetEmail.js";
+import { sendResetSuccessEmail } from "../mail/utils/sendResetSuccessEmail.js";
 import { saveVerificationCodeHash } from "../services/userQueries.js";
-import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -176,19 +177,17 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
+    // token for the reset link
     const resetToken = crypto.randomBytes(20).toString("hex");
+    const resetTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000); //30 minutes
+    console.log("Rest token from forgetPass: ", resetToken);
 
-    const resetVerificationData = generateVerificationCode(); // need to change this all i got it wrong
-    await saveVerificationCodeHash(
-      user.id,
-      resetVerificationData.hash,
-      resetVerificationData.ExpiryDate,
-    );
-
-    await sendPasswordResetEmail(
-      user.email,
-      `${process.env.CLIENT_URL}/reset-password/${resetToken}`,
-    );
+    await saveVerificationCodeHash(user.id, resetToken, resetTokenExpiresAt);
+    //sending email
+    // await sendPasswordResetEmail(
+    //   user.email,
+    //   `${process.env.CLIENT_URL}/reset-password/${resetToken}`, // react app link
+    // );
 
     res.status(200).json({
       status: "success",
@@ -203,4 +202,48 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-export const resetPassword = (req, res) => {};
+export const resetPassword = async (req, res) => {
+  const { password } = req.body;
+  const { token } = req.params;
+
+  if (!password || !token) {
+    return res.status(400).json({
+      status: "error",
+      message: "Something wrong happend, Try again",
+    });
+  }
+
+  try {
+    const user = await find_user_by_token(token);
+    if (!user) {
+      throw new Error("Invalid or expired token");
+    }
+    const hashedPssword = await bcrypt.hash(password, 12);
+    await updatePassword(user.id, hashedPssword);
+    //send reset succes email
+    //await sendResetSuccessEmail(user.email, true, false); // flags
+
+    res
+      .status(200)
+      .json({ status: "success", message: "Password reset successfully" });
+  } catch (error) {
+    console.log("Error in reset password: ", error);
+    res.status(400).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
+
+export const checkAuth = async (req, res) => {
+  try {
+    const user = await find_user_by_id(req.user.userId);
+    if (!user) {
+      return res
+        .status(400)
+        .json({ status: "failed", message: "User not found" });
+    }
+
+    res.status(200).json({ status: "success", user: { ...user } });
+  } catch (error) {}
+};

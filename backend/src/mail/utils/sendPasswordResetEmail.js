@@ -9,7 +9,9 @@ export async function sendPasswordResetEmail(email, resetUrl) {
       from: sender,
       to: recipients,
       subject: "Reset your password",
-      html: resetPasswordEmailTemplate.replaceAll("{resetURL}", resetUrl),
+      html: resetPasswordEmailTemplate
+        .replaceAll("{resetURL}", resetUrl)
+        .replaceAll("{userEmail}", email),
       category: "Password Reset",
     });
     console.log("Reset pass email sent successfully");
