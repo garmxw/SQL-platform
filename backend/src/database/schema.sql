@@ -2,9 +2,7 @@
 -- SQL Platform Database Schema + Seed Data
 -- Author: garmx
 
-
-
--- TABLES
+-- TABLES:
 
 
 -- Users table
@@ -84,6 +82,9 @@ CREATE TABLE IF NOT EXISTS user_badges (
     PRIMARY KEY (user_id, badge_id)
 );
 
+
+
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_submissions_user ON submissions(user_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_problem ON submissions(problem_id);
@@ -91,29 +92,3 @@ CREATE INDEX IF NOT EXISTS idx_user_progress_user_track ON user_progress(user_id
 
 
 
--- SEED DATA
-
--- Users
--- INSERT INTO users (username, email, password_hash, user_role)
--- VALUES
--- ('admin', 'admin@sqlplatform.com', 'hashed_password_here', 'admin'),
--- ('alice', 'alice@example.com', 'hashed_password_here', 'student');
-
--- -- Tracks
--- INSERT INTO tracks (title, description, difficulty)
--- VALUES
--- ('Basics', 'Learn fundamental SQL queries', 'Easy'),
--- ('Joins', 'Master SQL JOINs', 'Medium');
-
--- -- Problems
--- INSERT INTO problems (track_id, title, description, starter_sql, solution_sql, difficulty)
--- VALUES
--- (1, 'Select all employees', 'Return all employees from the table', NULL, 'SELECT * FROM employees;', 'Easy'),
--- (1, 'Select names only', 'Return only the names of employees', NULL, 'SELECT name FROM employees;', 'Easy'),
--- (2, 'Inner Join Example', 'Join employees with departments', NULL, 'SELECT e.name, d.name FROM employees e INNER JOIN departments d ON e.department_id = d.id;', 'Medium');
-
--- Badges
--- INSERT INTO badges (name, description, badge_link)
--- VALUES
--- ('First Query', 'Completed first SQL problem', 'https://example.com/icons/first_query.png'),
--- ('Track Beginner', 'Completed all problems in a track', 'https://example.com/icons/track_beginner.png');

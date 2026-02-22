@@ -1,2 +1,26 @@
 use this folder when you want to update the database
 so you leave here the new Query and the query that undo it, so if a failure happend you can undo it using that undoQuery
+
+the first migration fixed/added :
+
+Track
+├─ Lesson 1
+│ ├─ Problem A
+│ ├─ Problem B
+│ └─ Progress
+├─ Lesson 2
+│ ├─ Problem C
+│ └─ Progress
+
+
+after migration 2 fixed/added :
+the updated mentale model : 
+
+tracks (chapters)
+ └─ lessons
+     ├─ content (markdown)
+     ├─ demo_sql
+     └─ problems
+         ├─ starter_sql
+         ├─ solution_sql
+         └─ xp_reward
