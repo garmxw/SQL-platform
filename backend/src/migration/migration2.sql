@@ -18,4 +18,6 @@ ADD COLUMN xp_reward INTEGER DEFAULT 10;
 ALTER TABLE problems
 ADD COLUMN xp_reward INTEGER DEFAULT 20;
 
-
+ALTER TABLE problems 
+ALTER COLUMN solution_sql TYPE JSONB 
+USING to_jsonb(solution_sql);
