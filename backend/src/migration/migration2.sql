@@ -21,3 +21,12 @@ ADD COLUMN xp_reward INTEGER DEFAULT 20;
 ALTER TABLE problems 
 ALTER COLUMN solution_sql TYPE JSONB 
 USING to_jsonb(solution_sql);
+
+CREATE UNIQUE INDEX IF NOT EXISTS user_progress_unique
+ON user_progress (user_id, track_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS unique_correct_submission
+ON submissions (user_id, problem_id)
+WHERE is_correct = TRUE;
+
+ALTER TABLE user_progress RENAME TO user_track_progress;

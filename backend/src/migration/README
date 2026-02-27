@@ -24,3 +24,6 @@ tracks (chapters)
          ├─ starter_sql
          ├─ solution_sql
          └─ xp_reward
+
+
+NOTE: Treat user_track_progress as cached derived data dont trust its infos always recompute from submissions
