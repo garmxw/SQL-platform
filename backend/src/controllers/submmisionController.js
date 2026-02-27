@@ -1,12 +1,14 @@
 import { normalizeResult } from "../utils/normalizeResult.js";
+import { compareResults } from "../utils/compareResults.js";
 import { runCoreExecution } from "../services/sqlService.js";
 import {
   fetchProblemResult,
   saveSubmission,
-  totalProblemsResult,
-  completedProblemsResult,
-  upateUserProgress,
+  preventSuplicativeSolves,
+  checkAndMarkLessonAsComplete,
+  checkAndMarkTrackAsComplete,
 } from "../services/sqlDataQueries.js";
+import { db } from "../config/db.js";
 
 export const submitSolution = async (req, res) => {
   try {
@@ -40,11 +42,12 @@ export const submitSolution = async (req, res) => {
         PS: this is the solution we're going to make for the problem 
         */
 
-    if (!solutionSql)
+    if (!solutionSql) {
       return res.status(400).json({
         success: false,
         message: "no solution found for the problem",
       });
+    }
 
     // run user sql
     let UserParsed;
@@ -77,49 +80,45 @@ export const submitSolution = async (req, res) => {
       ignoreOrder,
     );
 
-    //compare
-    const isCorrect =
-      JSON.stringify(normalizeUserSql.rows) ===
-      JSON.stringify(normalizeSolutionSql.rows);
-
-    if (!isCorrect) {
+    // check for duplicate solves
+    const isSolved = await preventSuplicativeSolves(userId, problemId);
+    if (isSolved) {
       return res.status(200).json({
         success: false,
+        message: "Problem already solved",
+      });
+    }
+
+    // compare with feedback
+    const comparison = compareResults(normalizeUserSql, normalizeSolutionSql, {
+      ignoreOrder,
+    });
+
+    if (!comparison.isCorrect) {
+      return res.status(200).json({
+        success: true,
         isCorrect: false,
-        feedback: {
-          reason: "result_mismatch",
-          message:
-            "Your query executed successfully,but the result does not match the expected output.",
-        },
+        feedback: comparison,
         userResult: normalizeUserSql,
       });
     }
 
-    //save submission
-    await saveSubmission(userId, problemId, sql);
+    await db.query("BEGIN");
+    try {
+      //save submission
+      await saveSubmission(userId, problemId, sql);
+      // check and mark lesson/track as complete when finished
+      await checkAndMarkLessonAsComplete(userId, problem.lesson_id);
+      await checkAndMarkTrackAsComplete(userId, trackId);
 
-    // total problems in this track
-    const totalProblems = await totalProblemsResult(problem.trackId);
-
-    // completed problems by user in this track
-    const completedProblems = await completedProblemsResult(
-      userId,
-      problem.trackId,
-    );
-
-    const completed = totalProblems === completedProblems;
-
-    // update user_progress table
-    await upateUserProgress(
-      userId,
-      problem.trackId,
-      completedProblems,
-      totalProblems,
-      completed,
-    );
+      await db.query("COMMIT");
+    } catch (err) {
+      await db.query("ROLLBACK");
+      throw err;
+    }
 
     return res.status(200).json({
-      success: false,
+      success: true,
       isCorrect: true,
       message: "Congratulations, Correct solution",
     });
