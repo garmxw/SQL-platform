@@ -1,1 +1,88 @@
 here is the database Schema that i designed but with improvements it will change so that change will happend on the migration folder you will be able to see new sql files that add an extra tables, indexes or modify the database so when you run the schema.sql file you should also run the migration files in order for example : migration1.sql then migration2.sql etc... ans so on, by doig that you will have the updated version of the database
+
+-- NOTES on BADGES & XP logic/table :
+
+    update db, copleting submmission and lesson/track completion, transaction safety logic (not tested yet)
+
+1.Badge Categories :
+
+    Category 1: Onboarding & First Actions (These guide new users and reduce drop-off):
+
+        | # | Badge Name               | Trigger (Exact Rule)            |
+        | - | ------------------------ | ------------------------------- |
+        | 1 | **Welcome Aboard**       | User creates account            |
+        | 2 | **First Query**          | Executes first SQL query        |
+        | 3 | **First Lesson**         | Completes first lesson          |
+        | 4 | **First Correct Answer** | Gets first correct query result |
+
+        Triggered by:
+
+        users
+        query_submissions
+        lesson_progress
+
+    Category 2: Lesson Progression (Pure progression):
+
+        | # | Badge Name          | Trigger               |
+        | - | ------------------- | --------------------- |
+        | 5 | **SQL Beginner**    | 5 lessons completed   |
+        | 6 | **Getting Serious** | 10 lessons completed  |
+        | 7 | **Halfway There**   | 25 lessons completed  |
+        | 8 | **SQL Grinder**     | 50 lessons completed  |
+        | 9 | **Lesson Master**   | 100 lessons completed |
+
+        Triggered by:
+
+        user_lessons
+        lesson_progress (completed = true)
+
+    Category 3: Track / Path Completion :
+
+        | #  | Badge Name              | Trigger                        |
+        | -- | ----------------------- | ------------------------------ |
+        | 10 | **Track Finisher**      | Completes first full track     |
+        | 11 | **Multi-Track Learner** | Completes 3 tracks             |
+        | 12 | **SQL Explorer**        | Completes all beginner tracks  |
+        | 13 | **Path Master**         | Completes a full learning path |
+
+        Triggered by:
+        tracks
+        track_lessons
+        user_track_progress
+
+
+    Category 4: Performance & Skill (Awarded for quality):
+
+        | #  | Badge Name        | Trigger                                         |
+        | -- | ----------------- | ----------------------------------------------- |
+        | 14 | **Clean Query**   | Solves a lesson with zero errors                |
+        | 15 | **One-Shot**      | Solves lesson on first attempt                  |
+        | 16 | **Speed Runner**  | Solves lesson under X seconds                   |
+        | 17 | **Accuracy King** | 10 lessons solved consecutively without failure |
+
+        Triggered by:
+        query_attempts
+        execution_logs
+        timestamps
+
+    Category 5: Consistency & Engagement:
+
+        | #  | Badge Name        | Trigger                                                   |
+        | -- | ----------------- | --------------------------------------------------------- |
+        | 18 | **Daily Learner** | Active 3 days in a row                                    |
+        | 19 | **Weekly Streak** | Active 7 days in a row                                    |
+        | 20 | **Never Quit**    | Active 30 days (not necessarily consecutive, your choice) |
+
+        Triggered by:
+        user_activity_log
+        last_active_at
+
+2.XP System Design:
+
+    | Action            | XP           |
+    | ----------------- | ------------ |
+    | Correct Problem   | +10 XP       |
+    | Lesson Completed  | +50 XP       |
+    | Track Completed   | +200 XP      |
+    | First Try Correct | +5 XP bonus  |
+    | Perfect Lesson    | +20 XP bonus |
