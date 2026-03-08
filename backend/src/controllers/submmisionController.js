@@ -4,10 +4,14 @@ import { runCoreExecution } from "../services/sqlService.js";
 import {
   fetchProblemResult,
   saveSubmission,
-  preventSuplicativeSolves,
+  preventDuplicativeSolves,
   checkAndMarkLessonAsComplete,
   checkAndMarkTrackAsComplete,
+  xpAndLevelUpating,
+  updateUserProblemState,
+  getCurrentXpAndLevel,
 } from "../services/sqlDataQueries.js";
+import { checkAndAwardBadges } from "../services/badgesQueries.js";
 import { db } from "../config/db.js";
 
 export const submitSolution = async (req, res) => {
@@ -23,7 +27,7 @@ export const submitSolution = async (req, res) => {
     }
 
     //fetch problem and solution
-    const problem = fetchProblemResult(problemId);
+    const problem = await fetchProblemResult(problemId);
     if (!problem)
       return res
         .status(400)
@@ -49,16 +53,21 @@ export const submitSolution = async (req, res) => {
       });
     }
 
+    // check for duplicate solves
+    const isSolved = await preventDuplicativeSolves(userId, problemId);
+    if (isSolved) {
+      return res.status(200).json({
+        success: false,
+        message: "Problem already solved, You can't Re-submmit it",
+      });
+    }
+
     // run user sql
     let UserParsed;
     try {
-      // We call the service directly no faking req, res, or status!
       UserParsed = await runCoreExecution(sql, engine);
-
-      // Now userSqlParsed contains the real data you need for comparison
     } catch (err) {
-      // If the SQL is invalid or the executor fails, it hits this block
-      throw new Error(`Solution execution failed: ${err.message}`);
+      throw new Error(`User SQL execution failed: ${err.message}`);
     }
 
     // run solution sql
@@ -80,15 +89,6 @@ export const submitSolution = async (req, res) => {
       ignoreOrder,
     );
 
-    // check for duplicate solves
-    const isSolved = await preventSuplicativeSolves(userId, problemId);
-    if (isSolved) {
-      return res.status(200).json({
-        success: false,
-        message: "Problem already solved",
-      });
-    }
-
     // compare with feedback
     const comparison = compareResults(normalizeUserSql, normalizeSolutionSql, {
       ignoreOrder,
@@ -103,27 +103,70 @@ export const submitSolution = async (req, res) => {
       });
     }
 
-    await db.query("BEGIN");
-    try {
-      //save submission
-      await saveSubmission(userId, problemId, sql);
-      // check and mark lesson/track as complete when finished
-      await checkAndMarkLessonAsComplete(userId, problem.lesson_id);
-      await checkAndMarkTrackAsComplete(userId, trackId);
+    let badgeXp = 0;
+    let totalXpChange = 0;
+    let newXp, newLevel, leveledUP, userBefore, badgeXpAndLevelRes;
 
-      await db.query("COMMIT");
+    const client = await db.connect(); // this for transactions so if any of the logic below fails it will rollback or commit it if it success
+
+    try {
+      await client.query("BEGIN");
+
+      //save submission
+      await saveSubmission(userId, problemId, sql, client);
+
+      // save the state table
+      await updateUserProblemState(
+        userId,
+        problemId,
+        comparison.isCorrect,
+        client,
+      );
+
+      // check and mark lesson/track as complete when finished
+      await checkAndMarkLessonAsComplete(userId, problem.lesson_id, client);
+      await checkAndMarkTrackAsComplete(userId, trackId, client);
+
+      // get user xp and level before changing them
+      userBefore = await getCurrentXpAndLevel(userId, client);
+
+      //check and award badges
+      badgeXpAndLevelRes = await checkAndAwardBadges(userId, client);
+
+      // compute changes
+      badgeXp = badgeXpAndLevelRes.badgeXpGained || 0;
+      totalXpChange = problem.xp_reward + badgeXp;
+
+      //award xp & updating Level
+      ({ newXp, newLevel } = await xpAndLevelUpating(
+        userId,
+        totalXpChange,
+        client,
+      ));
+      leveledUP = newLevel > userBefore.Level;
+
+      await client.query("COMMIT");
     } catch (err) {
-      await db.query("ROLLBACK");
+      await client.query("ROLLBACK");
       throw err;
+    } finally {
+      client.release();
     }
 
     return res.status(200).json({
       success: true,
       isCorrect: true,
+      xpFromProblem: problem.xp_reward,
+      xpFromBadges: badgeXp,
+      XpGained: totalXpChange,
+      previousLevel: userBefore.Level,
+      newLevel: newLevel,
+      is_leveledUp: leveledUP,
+      earnedBadges: badgeXpAndLevelRes.newlyEarnedBadges,
       message: "Congratulations, Correct solution",
     });
   } catch (error) {
-    console.error("submitSQL error:", err);
+    console.error("submitSQL error:", error);
     res.status(500).json({
       success: false,
       error: "Internal server error",

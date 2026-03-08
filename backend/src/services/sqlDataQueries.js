@@ -4,6 +4,7 @@ import { parsePostgresResult } from "../utils/parsePostgresRaw.js";
 import { parseSQLiteResult } from "../utils/parsesqlite.js";
 import { validateQuery } from "../security/validateQuery.js";
 import { withTimeout } from "../executor/timeOut.js";
+import { calculateLevel } from "../utils/levelUtils.js";
 
 export const runCoreExecution = async (sql, engine) => {
   const validation = validateQuery(sql);
@@ -39,14 +40,21 @@ export const runCoreExecution = async (sql, engine) => {
   return parsedResult;
 };
 
-export const fetchProblemResult = async (problemId) => {
-  const result = await db.query("SELECT * FROM problems WHERE id = $1", [
-    problemId,
-  ]);
+export const fetchProblemResult = async (
+  problemId,
+  columns = "*",
+  client = db,
+) => {
+  const selectedRows = Array.isArray(columns) ? columns.join(", ") : columns;
+
+  const result = await client.query(
+    `SELECT ${selectedRows} FROM problems WHERE id = $1`,
+    [problemId],
+  );
   return result.rows[0];
 };
 
-export const preventSuplicativeSolves = async (userId, problemId) => {
+export const preventDuplicativeSolves = async (userId, problemId) => {
   const result = await db.query(
     `SELECT 1
 FROM submissions
@@ -56,18 +64,54 @@ WHERE user_id = $1 AND problem_id = $2;`,
   return result.rowCount > 0;
 };
 
-export const saveSubmission = async (userId, problemId, sql) => {
-  await db.query(
+export const saveSubmission = async (userId, problemId, sql, client) => {
+  await client.query(
     `INSERT INTO submissions (user_id, problem_id, submitted_sql, is_correct)
        VALUES ($1, $2, $3, TRUE)`,
     [userId, problemId, sql],
   );
 };
 
+export async function updateUserProblemState(
+  userId,
+  problemId,
+  isCorrect,
+  client,
+) {
+  // create row or increment attempts
+  await client.query(
+    `
+    INSERT INTO user_problem_state (user_id, problem_id, attempts, first_attempt_at)
+    VALUES ($1,$2,1,NOW())
+    ON CONFLICT (user_id, problem_id)
+    DO UPDATE SET attempts = user_problem_state.attempts + 1
+    `,
+    [userId, problemId],
+  );
+
+  if (isCorrect) {
+    await client.query(
+      `
+      UPDATE user_problem_state
+      SET is_solved = true,
+          solved_at = NOW()
+      WHERE user_id = $1
+      AND problem_id = $2
+      AND is_solved = false
+      `,
+      [userId, problemId],
+    );
+  }
+}
+
 // update user progress
-export const checkAndMarkLessonAsComplete = async (userId, lessonId) => {
+export const checkAndMarkLessonAsComplete = async (
+  userId,
+  lessonId,
+  client,
+) => {
   // total problems in a lesson
-  const totalProblemsRes = await db.query(
+  const totalProblemsRes = await client.query(
     `SELECT COUNT(*) FROM problems WHERE lesson_id = $1`,
     [lessonId],
   );
@@ -75,7 +119,7 @@ export const checkAndMarkLessonAsComplete = async (userId, lessonId) => {
   if (totalProblems === 0) return;
 
   //solved problems by user
-  const solvedProblemsRes = await db.query(
+  const solvedProblemsRes = await client.query(
     ` SELECT COUNT(DISTINCT s.problem_id)
     FROM submissions s
     JOIN problems p ON p.id = s.problem_id
@@ -91,7 +135,7 @@ export const checkAndMarkLessonAsComplete = async (userId, lessonId) => {
   //mark lesson completed if fully solved
 
   if (solvedProblems === totalProblems) {
-    await db.query(
+    await client.query(
       `
       INSERT INTO user_lesson_progress (
         user_id,
@@ -112,9 +156,9 @@ export const checkAndMarkLessonAsComplete = async (userId, lessonId) => {
   }
 };
 
-export const checkAndMarkTrackAsComplete = async (userId, trackId) => {
+export const checkAndMarkTrackAsComplete = async (userId, trackId, client) => {
   // Total problems in track
-  const totalProblemsRes = await db.query(
+  const totalProblemsRes = await client.query(
     `
     SELECT COUNT(*) AS total
     FROM problems p
@@ -127,7 +171,7 @@ export const checkAndMarkTrackAsComplete = async (userId, trackId) => {
   if (totalProblems === 0) return;
 
   //  Correctly solved problems by user in this track
-  const solvedProblemsRes = await db.query(
+  const solvedProblemsRes = await client.query(
     `
     SELECT COUNT(DISTINCT s.problem_id) AS solved
     FROM submissions s
@@ -143,7 +187,7 @@ export const checkAndMarkTrackAsComplete = async (userId, trackId) => {
 
   // Insert or update user_track_progress
   const completed = solvedProblems === totalProblems;
-  await db.query(
+  await client.query(
     `
     INSERT INTO user_track_progress (
       user_id,
@@ -162,5 +206,78 @@ export const checkAndMarkTrackAsComplete = async (userId, trackId) => {
       updated_at = NOW()
     `,
     [userId, trackId, solvedProblems, totalProblems, completed],
+  );
+};
+
+export const getCurrentXpAndLevel = async (userId, client) => {
+  const userXpAndLevel = await client.query(
+    `SELECT xp, level FROM users WHERE id = $1`,
+    [userId],
+  );
+  const xp = userXpAndLevel.rows[0].xp;
+  const Level = userXpAndLevel.rows[0].level;
+  return { xp, Level };
+};
+
+export const xpAndLevelUpating = async (userId, xpchange, client) => {
+  const xpResult = await client.query(
+    ` UPDATE users
+    SET xp = GREATEST(xp + $1, 0)
+    WHERE id = $2
+    RETURNING xp`,
+    [xpchange, userId],
+  );
+  const newXp = xpResult.rows[0].xp;
+  const newLevel = calculateLevel(newXp);
+
+  await client.query(
+    `UPDATE users
+    SET level = $1
+    WHERE id = $2`,
+    [newLevel, userId],
+  );
+  return { newXp, newLevel };
+};
+
+export const is_problemSolved = async (userId, problemId, client = db) => {
+  const result = await client.query(
+    `
+    SELECT COALESCE(is_solved, false) AS solved
+    FROM user_problem_state
+    WHERE user_id = $1 AND problem_id = $2
+    `,
+    [userId, problemId],
+  );
+
+  return result.rows[0]?.solved ?? false;
+};
+
+export const is_solutionViewed = async (userId, problemId, client = db) => {
+  const result = await client.query(
+    `SELECT 1
+       FROM solution_views
+       WHERE user_id = $1
+       AND problem_id = $2`,
+    [userId, problemId],
+  );
+  return result.rowCount > 0;
+};
+
+export const getCurrentLevel = async (userId, client = db) => {
+  const result = await client.query(`SELECT level FROM users WHERE id = $1`, [
+    userId,
+  ]);
+  return result.rows[0].level;
+};
+
+export const recordSolutionView = async (userId, problemId, client = db) => {
+  await client.query(
+    `
+    INSERT INTO solution_views (user_id, problem_id, viewed_at)
+    VALUES ($1, $2, CURRENT_TIMESTAMP)
+    ON CONFLICT (user_id, problem_id) 
+    DO UPDATE SET viewed_at = EXCLUDED.viewed_at;
+    `,
+    [userId, problemId],
   );
 };
