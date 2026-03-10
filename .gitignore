@@ -13,14 +13,26 @@ backend/yarn-debug.log
 backend/yarn-error.log
 backend/.env
 
+server/node_modules
+server/npm-debug.log
+server/yarn-debug.log
+server/yarn-error.log
+server/.env
+
+src/server/node_modules
+src/server/npm-debug.log
+src/server/yarn-debug.log
+src/server/yarn-error.log
+src/server/.env
+
 #Frontend
-frontend/node_modules/
-frontend/build/
-frontend/dist/
-frontend/npm-debug.log
-frontend/yarn-debug.log
-frontend/yarn-error.log
-frontend/.env
+app/node_modules/
+app/build/
+app/dist/
+app/npm-debug.log
+app/yarn-debug.log
+app/yarn-error.log
+app/.env
 
 #Docker
 # we gonna need this later when we start using docker for the whole app, for now we can ignore it

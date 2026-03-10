@@ -16,6 +16,7 @@ import xpRouter from "./routes/xpRouter.js";
 import adminPanelRouter from "./routes/adminPanelRouter.js";
 import systemRouter from "./routes/systemeRouter.js";
 import historyRouter from "./routes/history.js";
+import leaderboardRouter from "./routes/leaderboard.js";
 
 dotenv.config();
 
@@ -36,7 +37,7 @@ app.use("/api/badges", badgesRouter);
 app.use("/api/xp", xpRouter);
 app.use("/api/history", historyRouter);
 app.use("/api/system", systemRouter);
-app.use("/admin", adminPanelRouter);
+app.use("/leaderboard", leaderboardRouter);
 
 const testDbConnection = async () => {
   try {

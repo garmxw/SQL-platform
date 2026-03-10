@@ -281,3 +281,47 @@ export const recordSolutionView = async (userId, problemId, client = db) => {
     [userId, problemId],
   );
 };
+
+export const updateUserStreak = async (userId, client) => {
+  const result = await client.query(
+    `SELECT current_streak, longest_streak, last_solved_date
+     FROM users
+     WHERE id = $1`,
+    [userId],
+  );
+  const user = result.rows[0];
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString().slice(0, 10);
+
+  let newStreak = user.current_streak;
+
+  if (user.last_solved_date === todayStr) return;
+  if (user.last_solved_date === yesterday) {
+    newStreak += 1;
+  } else {
+    newStreak = 1;
+  }
+
+  const longest = Math.max(newStreak, user.longest_streak);
+
+  await client.query(
+    `UPDATE users
+     SET current_streak = $1,
+         longest_streak = $2,
+         last_solved_date = $3
+     WHERE id = $4`,
+    [newStreak, longest, todayStr, userId],
+  );
+};
+
+export const getLeaderboard = async () => {
+  const result = await db.query(`SELECT id, username, xp
+    FROM users
+    ORDER BY xp DESC
+    LIMIT 50`);
+  return result.rows;
+};

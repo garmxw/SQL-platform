@@ -10,6 +10,7 @@ import {
   xpAndLevelUpating,
   updateUserProblemState,
   getCurrentXpAndLevel,
+  updateUserStreak,
 } from "../services/sqlDataQueries.js";
 import { checkAndAwardBadges } from "../services/badgesQueries.js";
 import { db } from "../config/db.js";
@@ -129,6 +130,9 @@ export const submitSolution = async (req, res) => {
 
       // get user xp and level before changing them
       userBefore = await getCurrentXpAndLevel(userId, client);
+
+      // update the user streak
+      await updateUserStreak(userId, client);
 
       //check and award badges
       badgeXpAndLevelRes = await checkAndAwardBadges(userId, client);

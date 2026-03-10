@@ -14,3 +14,8 @@ CREATE TABLE user_problem_state (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (problem_id) REFERENCES problems(id) ON DELETE CASCADE
 );
+
+ALTER TABLE users
+ADD COLUMN current_streak INT DEFAULT 0,
+ADD COLUMN longest_streak INT DEFAULT 0,
+ADD COLUMN last_solved_date DATE;
