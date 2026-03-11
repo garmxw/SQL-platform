@@ -1,6 +1,6 @@
 import { normalizeResult } from "../utils/normalizeResult.js";
 import { compareResults } from "../utils/compareResults.js";
-import { runCoreExecution } from "../services/sqlService.js";
+import { runCoreExecution } from "#shared/services/sqlDataQueries.js";
 import {
   fetchProblemResult,
   saveSubmission,
@@ -11,9 +11,9 @@ import {
   updateUserProblemState,
   getCurrentXpAndLevel,
   updateUserStreak,
-} from "../services/sqlDataQueries.js";
-import { checkAndAwardBadges } from "../services/badgesQueries.js";
-import { db } from "../config/db.js";
+} from "#shared/services/sqlDataQueries.js";
+import { checkAndAwardBadges } from "#shared/services/badgesQueries.js";
+import { db } from "#shared/config/db.js";
 
 export const submitSolution = async (req, res) => {
   try {

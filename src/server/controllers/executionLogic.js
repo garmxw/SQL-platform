@@ -1,4 +1,4 @@
-import { runCoreExecution } from "../services/sqlService.js";
+import { runCoreExecution } from "#shared/services/sqlDataQueries";
 
 export const executeSQL = async (req, res) => {
   const { sql, engine } = req.body;

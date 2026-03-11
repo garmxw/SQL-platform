@@ -1,7 +1,7 @@
 import crypto from "crypto";
-import { findUserBy_email_Or_username } from "../services/userQueries.js";
+import { findUserBy_email_Or_username } from "#shared/services/userQueries.js";
 import dotenv from "dotenv";
-import { markUserAsVerified } from "../services/userQueries.js";
+import { markUserAsVerified } from "#shared/services/userQueries.js";
 //import { sendWelcomeEmail } from " ../mail/utils/sendWelcomeEmail.js";
 
 dotenv.config();

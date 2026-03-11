@@ -1,4 +1,4 @@
-import { xpAndLevelUpating } from "../services/sqlDataQueries.js";
+import { xpAndLevelUpating } from "./sqlDataQueries.js";
 
 export async function checkAndAwardBadges(userId, client) {
   try {

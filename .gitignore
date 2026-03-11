@@ -1,39 +1,49 @@
-#General
-.DS_Store
+# --- Project Specific ---
+# Ignore the hidden Next.js build folder (mandatory)
+.next/
+# Ignore any root build or dist folders
+dist/
+build/
+out/
+
+# --- Dependencies ---
+# Never commit node_modules
+node_modules/
+
+# --- Environment & Secrets ---
+# Keep your secrets private
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+# DO NOT ignore the example file so others know what keys to use
+!.env.example
 
-#Node.js / Backend
-backend/node_modules/
-backend/npm-debug.log
-backend/yarn-debug.log
-backend/yarn-error.log
-backend/.env
+# --- TypeScript ---
+*.tsbuildinfo
+next-env.d.ts
 
-server/node_modules
-server/npm-debug.log
-server/yarn-debug.log
-server/yarn-error.log
-server/.env
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-src/server/node_modules
-src/server/npm-debug.log
-src/server/yarn-debug.log
-src/server/yarn-error.log
-src/server/.env
+# --- Operating System & IDE ---
+.DS_Store
+Thumbs.db
+# We keep .vscode/settings.json usually, but ignore the rest
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
 
-#Frontend
-app/node_modules/
-app/build/
-app/dist/
-app/npm-debug.log
-app/yarn-debug.log
-app/yarn-error.log
-app/.env
+# --- Docker ---
+# Ignore local overrides
+docker-compose.override.yml
 
-#Docker
-# we gonna need this later when we start using docker for the whole app, for now we can ignore it
-# docker-compose.override.yml
+# --- Testing ---
+coverage/
+.nyc_output/

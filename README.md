@@ -14,3 +14,16 @@ NOTES:
     UNIQUE(user_id, track_id) in user_progress ensures one progress entry per user per track.
 
     Indexes improve query performance for common lookups (submissions, progress).
+
+NOTE: architecture for the admin subdomain
+
+src/app/
+├── (main)/ # The regular user site
+│ ├── layout.tsx
+│ └── page.tsx
+├── (admin)/ # The admin site (admin.login)
+│ ├── layout.tsx
+│ └── page.tsx
+└── globals.css
+
+![alt text](image.png)

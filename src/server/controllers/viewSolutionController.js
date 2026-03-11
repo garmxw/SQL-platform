@@ -1,10 +1,10 @@
-import { db } from "../config/db.js";
+import { db } from "#shared/config/db.js";
 import {
   fetchProblemResult,
   getCurrentLevel,
   is_problemSolved,
   recordSolutionView,
-} from "../services/sqlDataQueries.js";
+} from "#shared/services/sqlDataQueries.js";
 
 const getPenalty = (difficulty) => {
   switch (difficulty) {

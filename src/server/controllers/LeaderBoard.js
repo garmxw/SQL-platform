@@ -1,4 +1,4 @@
-import { getLeaderboard } from "../services/sqlDataQueries";
+import { getLeaderboard } from "#shared/services/sqlDataQueries";
 
 export async function LeaderBoardController(req, res) {
   try {

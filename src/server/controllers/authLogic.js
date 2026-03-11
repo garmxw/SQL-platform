@@ -13,7 +13,8 @@ import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js
 import { sendVerificationEmail } from "../mail/utils/sendVerificationEmail.js";
 import { sendPasswordResetEmail } from "../mail/utils/sendPasswordResetEmail.js";
 import { sendResetSuccessEmail } from "../mail/utils/sendResetSuccessEmail.js";
-import { saveVerificationCodeHash } from "../services/userQueries.js";
+import { saveVerificationCodeHash } from "#shared/services/userQueries.js";
+// ../../services/userQueries.js
 
 dotenv.config();
 
