@@ -6,7 +6,8 @@
       "#app/*": ["./src/app/*"],
       "#shared/*": ["./src/shared/*"],
       "#db/*": ["./src/server/database/*"],
-      "#components/*": ["./src/components/*"]
+      "#components/*": ["./src/components/*"],
+      "#src/*": ["./src/*"]
     }
   },
   "exclude": ["node_modules"]

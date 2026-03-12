@@ -27,6 +27,18 @@ const nextApp = next({ dev });
 const handle = nextApp.getRequestHandler();
 
 const PORT = process.env.PORT || 3000;
+// middleware to check for admin routes
+const adminSubdomainCheck = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) => {
+  const host = req.get("hsot") || "";
+  if (host.startsWith("admin.")) {
+    return next();
+  }
+  res.status(403).send("Forbiddem: Admins only.");
+};
 
 // Test DB Connection
 const testDbConnection = async () => {
@@ -59,7 +71,7 @@ nextApp.prepare().then(() => {
   server.use("/api/history", historyRouter);
   server.use("/api/system", systemRouter);
   server.use("/leaderboard", leaderboardRouter);
-  server.use("/api/admin", adminPanelRouter);
+  server.use("/api/admin", adminSubdomainCheck, adminPanelRouter);
 
   // 3. Next.js Handler (MUST be last)
   // This tells Express: "If none of the above routes match, let Next.js handle it."
@@ -70,6 +82,6 @@ nextApp.prepare().then(() => {
   testDbConnection();
 
   server.listen(PORT, () => {
-    console.log(`> Unified Server ready on http://localhost:${PORT}`);
+    console.log(`> Unified Server ready on :${PORT}`);
   });
 });
