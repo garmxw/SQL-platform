@@ -25,8 +25,8 @@
       "#app/*": ["./src/app/*"],
       "#shared/*": ["./src/shared/*"],
       "#db/*": ["./src/server/database/*"],
-      "#components/*": ["./src/components/*"],
-      "#src/*": ["./src/*"]
+      "#src/*": ["./src/*"],
+      "@/*": ["./src/*"]
     }
   },
   "include": [

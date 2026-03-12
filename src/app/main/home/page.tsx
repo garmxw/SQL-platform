@@ -1,7 +1,15 @@
-import React from "react";
+
+import { CirclePlus } from "lucide-react";
 
 function home() {
-  return <div>Home Page</div>;
+  return (
+    <div>
+      <Button variant={"default"} size={"lg"}>
+        <CirclePlus />
+        Click
+      </Button>
+    </div>
+  );
 }
 
 export default home;
