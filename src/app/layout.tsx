@@ -15,8 +15,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("font-sans", geist.variable)}
       suppressHydrationWarning
+      className={cn("font-sans", geist.variable)}
     >
       <body className={`${inter.className} antialiased`}>
         <ThemeProvider

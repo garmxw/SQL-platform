@@ -95,6 +95,7 @@ function CardList({ title }: { title: string }) {
                   src={item.image}
                   alt={item.title}
                   fill
+                  sizes="(max-width: 768px) 100vw, 300px"
                   className="object-cover"
                 />
               </div>

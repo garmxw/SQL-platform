@@ -44,6 +44,21 @@
   --color-may: oklch(0.424 0.199 265.638);
   --scrollbar-thumb: #6366f1;
   --scrollbar-track: #f3f4f6;
+  /* Heatmap Shades (Luminance Adjusted) */
+  /* Level 0: A very faint, nearly-white blue (instead of grey) */
+  --heatmap-0: #2c2c2c;
+
+  /* Level 1: A "Mist" blue (1-2 counts) */
+  --heatmap-1: #91d5ff;
+
+  /* Level 2: A "Cloud" blue (3-5 counts) */
+  --heatmap-2: #40a9ff;
+
+  /* Level 3: A "Soft Sky" blue (6-8 counts) */
+  --heatmap-3: #0050b3;
+
+  /* Level 4: Your Original "Airy Blue" (9+ counts) */
+  --heatmap-4: #053b89;
 }
 
 .dark {
@@ -95,6 +110,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-heatmap-0: var(--heatmap-0);
+  --color-heatmap-1: var(--heatmap-1);
+  --color-heatmap-2: var(--heatmap-2);
+  --color-heatmap-3: var(--heatmap-3);
+  --color-heatmap-4: var(--heatmap-4);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -120,6 +140,52 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* for magix ui if they wont work then i will remove them*/
+  --animate-gradient: gradient 8s linear infinite;
+  @keyframes gradient {
+    to {
+      background-position: var(--bg-size, 300%) 0;
+    }
+  }
+
+  /* For Shine Border */
+  --animate-shine-border: shine-border var(--duration) infinite linear;
+  @keyframes shine-border {
+    100% {
+      left: 100%;
+    }
+  }
+  /* this one shadcn adds them by it self*/
+  --animate-shine: shine var(--duration) infinite linear;
+  @keyframes shine {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    to {
+      background-position: 0% 0%;
+    }
+  }
+
+  @keyframes border-beam-spin {
+    from {
+      --beam-angle: 0;
+    }
+    to {
+      --beam-angle: 360;
+    }
+  }
+  @keyframes shimmer-sweep {
+    from {
+      background-position: -200% center;
+    }
+    to {
+      background-position: 200% center;
+    }
+  }
 }
 
 @layer base {
@@ -172,4 +238,10 @@
     background: white;
     color: black;
   }
+}
+/* font inter for the tables */
+table,
+th,
+td {
+  font-family: "Inter", system-ui, sans-serif !important;
 }
