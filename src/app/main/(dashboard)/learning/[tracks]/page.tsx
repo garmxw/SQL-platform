@@ -45,7 +45,7 @@ import {
   ChevronDown,
   ChevronRight,
   Lock,
-  BookOpen,
+  Bookmark,
   Code2,
   Layers,
   Zap,
@@ -373,7 +373,7 @@ interface Track {
   id: number;
   title: string;
   description: string;
-  icon: typeof BookOpen;
+  icon: typeof Bookmark;
   tag: "Beginner" | "Intermediate" | "Advanced";
   totalLessons: number;
   lessons: Lesson[];
@@ -385,7 +385,7 @@ const TRACKS: Track[] = [
     title: "SQL Foundations",
     description:
       "Master the core syntax — SELECT, WHERE, ORDER BY, and filtering. The essential building blocks every SQL developer must know.",
-    icon: BookOpen,
+    icon: Bookmark,
     tag: "Beginner",
     totalLessons: 6,
     lessons: [
@@ -1030,13 +1030,13 @@ function LessonDialog({
         <DialogHeader>
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
             {lesson.type === "challenge" ? (
-              <Badge variant="outline" className="text-xs font-mono gap-1 px-2">
+              <Badge variant="outline" className="text-xs  gap-1 px-2">
                 <Puzzle className="w-3 h-3" />
                 Challenge
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-xs font-mono gap-1 px-2">
-                <BookOpen className="w-3 h-3" />
+              <Badge variant="outline" className="text-xs  gap-1 px-2">
+                <Bookmark className="w-3 h-3" />
                 Lesson
               </Badge>
             )}
@@ -1091,7 +1091,10 @@ function LessonDialog({
                   key={item}
                   className="flex items-start gap-2.5 text-sm text-muted-foreground"
                 >
-                  <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-foreground/60" />
+                  <CheckCircle2
+                    color="green"
+                    className="w-4 h-4 mt-0.5 shrink-0 text-foreground/60"
+                  />
                   {item}
                 </li>
               ))}
@@ -1136,13 +1139,14 @@ function LessonDialog({
                 >
                   <div className="flex items-center gap-2.5">
                     {lesson.problem.completed ? (
-                      <CheckCircle2 className="w-4 h-4 text-foreground shrink-0" />
+                      <CheckCircle2
+                        color="green"
+                        className="w-4 h-4 text-foreground shrink-0"
+                      />
                     ) : (
                       <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
                     )}
-                    <span className="text-sm font-mono">
-                      {lesson.problem.title}
-                    </span>
+                    <span className="text-sm  ">{lesson.problem.title}</span>
                   </div>
                   <DifficultyBadge difficulty={lesson.problem.difficulty} />
                 </div>
@@ -1189,7 +1193,10 @@ function StatusIcon({
 }) {
   if (completed)
     return (
-      <CheckCircle2 className="w-[18px] h-[18px] shrink-0 text-foreground" />
+      <CheckCircle2
+        color="green"
+        className="w-[18px] h-[18px] shrink-0 text-foreground"
+      />
     );
   if (status === "in-progress")
     return (
@@ -1240,10 +1247,7 @@ function LessonRow({
               {lesson.title}
             </span>
             {lesson.type === "challenge" && (
-              <Badge
-                variant="outline"
-                className="text-xs font-mono gap-1 px-1.5 py-0"
-              >
+              <Badge variant="outline" className="text-xs gap-1 px-1.5 py-0">
                 <Puzzle className="w-3 h-3" />
                 Challenge
               </Badge>
@@ -1264,11 +1268,14 @@ function LessonRow({
               )}
             >
               {lesson.problem.completed ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-foreground shrink-0" />
+                <CheckCircle2
+                  color="green"
+                  className="w-3.5 h-3.5 text-foreground shrink-0"
+                />
               ) : (
                 <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               )}
-              <span className="text-xs font-mono">{lesson.problem.title}</span>
+              <span className="text-xs ">{lesson.problem.title}</span>
               <DifficultyBadge difficulty={lesson.problem.difficulty} />
             </div>
           )}
@@ -1276,7 +1283,7 @@ function LessonRow({
 
         <div className="flex items-center gap-2 shrink-0 mt-0.5">
           {lesson.duration && (
-            <span className="text-xs text-muted-foreground font-mono">
+            <span className="text-xs text-muted-foreground ">
               {lesson.duration}
             </span>
           )}
@@ -1355,7 +1362,7 @@ function TrackCard({
                     </CardDescription>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1.5">
-                        <BookOpen className="w-3.5 h-3.5" />
+                        <Bookmark className="w-3.5 h-3.5" />
                         <NumberTicker
                           value={completedLessons}
                           delay={0.3 + index * 0.1}
@@ -1363,7 +1370,7 @@ function TrackCard({
                         <span>/{track.totalLessons} lessons</span>
                       </span>
                       <Separator orientation="vertical" className="h-3.5" />
-                      <span className="flex items-center gap-1 font-mono">
+                      <span className="flex items-center gap-1 ">
                         <NumberTicker
                           value={completion}
                           delay={0.3 + index * 0.1}
@@ -1448,30 +1455,39 @@ function SummaryStrip() {
   );
 
   const stats = [
-    { label: "Overall Progress", value: overallPct, suffix: "%", icon: Star },
+    {
+      label: "Overall Progress",
+      value: overallPct,
+      suffix: "%",
+      icon: Star,
+      color: "text-[#FFC107] fill-[#FFC107]",
+    },
     {
       label: "Lessons Done",
       value: doneLessons,
       suffix: `/${totalLessons}`,
-      icon: BookOpen,
+      icon: Bookmark,
+      color: "text-[#10B981] fill-[#10B981]",
     },
     {
       label: "Problems Solved",
       value: doneProblems,
       suffix: `/${totalProblems}`,
       icon: Puzzle,
+      color: "text-[#0EA5E9] fill-[#0EA5E9]",
     },
     {
       label: "Tracks Active",
       value: tracksStarted,
       suffix: `/${TRACKS.length}`,
       icon: Flame,
+      color: "text-[#FF5722] fill-[#FF5722]",
     },
   ];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-      {stats.map(({ label, value, suffix, icon: Icon }, i) => (
+      {stats.map(({ label, value, suffix, icon: Icon, color }, i) => (
         <BlurFade key={label} delay={0.06 * i} inView>
           <Card>
             <CardContent className="pt-5 pb-4">
@@ -1485,7 +1501,7 @@ function SummaryStrip() {
                     </span>
                   </p>
                 </div>
-                <Icon className="w-4 h-4 text-muted-foreground mt-1" />
+                <Icon className={`w-4 h-4 ${color} mt-1`} />
               </div>
             </CardContent>
           </Card>
