@@ -1,2293 +1,1594 @@
 "use client";
 
 import {
-  useState,
-  useEffect,
   useRef,
-  useCallback,
+  useEffect,
+  useState,
+  useId,
   type ReactNode,
+  type CSSProperties,
 } from "react";
-import confetti from "canvas-confetti";
-import { useTheme } from "next-themes";
+import {
+  motion,
+  useInView,
+  useScroll,
+  useSpring,
+  useMotionValue,
+} from "motion/react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Slider } from "@/components/ui/slider";
-import {
-  Play,
-  Send,
-  ChevronLeft,
-  ChevronRight,
   CheckCircle2,
-  XCircle,
-  Clock,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  RotateCcw,
-  GripVertical,
-  GripHorizontal,
-  Timer,
-  Pause,
-  PenLine,
-  Eraser,
-  Minus,
-  Square,
   Circle,
-  Trash2,
-  Undo2,
-  FileText,
+  ChevronDown,
+  ChevronRight,
+  Lock,
+  BookOpen,
   Code2,
-  Database,
-  Lightbulb,
+  Layers,
+  Zap,
+  Trophy,
   Star,
-  Eye,
-  Minimize2,
+  PlayCircle,
+  FileText,
+  Puzzle,
+  Clock,
+  Target,
+  ArrowRight,
+  Flame,
+  BarChart3,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  TYPES
+//  MAGIC UI — INLINED
 // ═══════════════════════════════════════════════════════════════════════════════
 
-type Dialect = "mysql" | "postgres" | "nosql";
-type RunStatus = "idle" | "running" | "accepted" | "wrong" | "error" | "tle";
-type DrawTool = "pen" | "line" | "rect" | "circle" | "eraser" | "text";
-
-interface RunResult {
-  status: RunStatus;
-  runtime?: string;
-  rows?: Record<string, unknown>[];
-  error?: string;
-  passedCases?: number;
-  totalCases?: number;
-}
-
-interface CanvasPoint {
-  x: number;
-  y: number;
-}
-interface CanvasStroke {
-  tool: DrawTool;
-  color: string;
-  size: number;
-  points: CanvasPoint[];
-  text?: string;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  STATIC MOCK DATA
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const PROBLEM = {
-  id: 185,
-  title: "Department Top Three Salaries",
-  difficulty: "Hard" as const,
-  acceptance: "48.3%",
-  tags: ["Window Functions", "Ranking", "Partition"],
-  description: `A company wants to find employees who are in the **top three unique salary tiers** within each department.\n\nWrite a SQL query that returns the department name, employee name, and salary for all such employees.\n\nReturn the result in **any order**.`,
-  solution: `-- Solution using DENSE_RANK window function\nWITH ranked AS (\n  SELECT\n    d.name        AS Department,\n    e.name        AS Employee,\n    e.salary      AS Salary,\n    DENSE_RANK() OVER (\n      PARTITION BY e.departmentId\n      ORDER BY e.salary DESC\n    ) AS rk\n  FROM Employee e\n  JOIN Department d ON e.departmentId = d.id\n)\nSELECT Department, Employee, Salary\nFROM ranked\nWHERE rk <= 3;`,
-  schema: [
-    {
-      table: "Employee",
-      columns: [
-        { name: "id", type: "int", note: "PK" },
-        { name: "name", type: "varchar(255)", note: "" },
-        { name: "salary", type: "int", note: "" },
-        { name: "departmentId", type: "int", note: "FK" },
-      ],
-    },
-    {
-      table: "Department",
-      columns: [
-        { name: "id", type: "int", note: "PK" },
-        { name: "name", type: "varchar(255)", note: "" },
-      ],
-    },
-  ],
-  exampleOutput: [
-    { Department: "IT", Employee: "Max", Salary: 90000 },
-    { Department: "IT", Employee: "Joe", Salary: 85000 },
-    { Department: "IT", Employee: "Randy", Salary: 85000 },
-    { Department: "IT", Employee: "Janet", Salary: 69000 },
-    { Department: "Sales", Employee: "Henry", Salary: 80000 },
-    { Department: "Sales", Employee: "Sam", Salary: 60000 },
-  ],
-  hints: [
-    "Use DENSE_RANK() to rank salaries within each department.",
-    "PARTITION BY departmentId, ORDER BY salary DESC inside OVER().",
-    "Wrap the ranked query in a CTE or subquery, then filter WHERE rank <= 3.",
-  ],
-  similar: [
-    {
-      id: 184,
-      title: "Department Highest Salary",
-      difficulty: "Medium" as const,
-    },
-    { id: 178, title: "Rank Scores", difficulty: "Medium" as const },
-    { id: 177, title: "Nth Highest Salary", difficulty: "Medium" as const },
-  ],
-};
-
-const DIALECTS: { value: Dialect; label: string }[] = [
-  { value: "mysql", label: "MySQL" },
-  { value: "postgres", label: "PostgreSQL" },
-  { value: "nosql", label: "NoSQL" },
-];
-
-const DEFAULT_SQL = `-- Write your SQL query here\nSELECT\n  d.name   AS Department,\n  e.name   AS Employee,\n  e.salary AS Salary\nFROM Employee e\nJOIN Department d ON e.departmentId = d.id\n`;
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  XP
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const XP_KEY = "ssql_xp_185";
-const MAX_XP = 500;
-const BASE_XP = 300;
-
-function XPBar({ xp, delta }: { xp: number; delta: number | null }) {
-  const pct = Math.round((xp / MAX_XP) * 100);
-  return (
-    <div className="flex items-center gap-2">
-      <Star className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-muted-foreground">
-          <span>
-            XP {xp}/{MAX_XP}
-          </span>
-          {delta !== null && (
-            <span
-              className={cn(
-                "font-bold",
-                delta > 0 ? "text-foreground" : "text-muted-foreground",
-              )}
-            >
-              {delta > 0 ? `+${delta}` : String(delta)}
-            </span>
-          )}
-        </div>
-        <Progress value={pct} className="h-1.5 w-20" />
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  CONFETTI
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function fireSideCannons() {
-  const end = Date.now() + 3000;
-  const colors = ["#a786ff", "#fd8bbc", "#eca184", "#f8deb1"];
-  function frame() {
-    if (Date.now() > end) return;
-    confetti({
-      particleCount: 2,
-      angle: 60,
-      spread: 55,
-      startVelocity: 60,
-      origin: { x: 0, y: 0.5 },
-      colors,
-    });
-    confetti({
-      particleCount: 2,
-      angle: 120,
-      spread: 55,
-      startVelocity: 60,
-      origin: { x: 1, y: 0.5 },
-      colors,
-    });
-    requestAnimationFrame(frame);
-  }
-  frame();
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  WRONG OVERLAY
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function WrongOverlay({ onDone }: { onDone: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 1600);
-    return () => clearTimeout(t);
-  }, [onDone]);
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[200] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3 px-8 py-6 rounded-xl border border-border bg-background/95 backdrop-blur-sm shadow-2xl animate-[wrongShake_0.45s_ease-in-out]">
-        <XCircle className="w-10 h-10 text-muted-foreground" />
-        <p className="text-base font-semibold">Wrong Answer</p>
-        <p className="text-sm text-muted-foreground">
-          Review your logic and try again.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  TIMER
-// ═══════════════════════════════════════════════════════════════════════════════
-
-type TimerMode = "stopwatch" | "countdown";
-interface TimerState {
-  mode: TimerMode;
-  running: boolean;
-  elapsed: number;
-  limit: number;
-  startedAt: number | null;
-}
-const TIMER_KEY = "ssql_timer_185";
-const TIMER_DEFAULTS: TimerState = {
-  mode: "stopwatch",
-  running: false,
-  elapsed: 0,
-  limit: 30,
-  startedAt: null,
-};
-
-function useTimer() {
-  const [state, setState] = useState<TimerState>(TIMER_DEFAULTS);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(TIMER_KEY);
-      if (raw) {
-        const saved: TimerState = JSON.parse(raw);
-        if (saved.running && saved.startedAt) {
-          const extra = Math.floor((Date.now() - saved.startedAt) / 1000);
-          const newElapsed =
-            saved.mode === "countdown"
-              ? Math.min(saved.elapsed + extra, saved.limit * 60)
-              : saved.elapsed + extra;
-          const stillRunning = !(
-            saved.mode === "countdown" && newElapsed >= saved.limit * 60
-          );
-          const rehydrated: TimerState = {
-            ...saved,
-            elapsed: newElapsed,
-            running: stillRunning,
-            startedAt: stillRunning ? Date.now() : null,
-          };
-          setState(rehydrated);
-          localStorage.setItem(TIMER_KEY, JSON.stringify(rehydrated));
-        } else {
-          setState(saved);
-        }
-      }
-    } catch {}
-    setMounted(true);
-  }, []);
-
-  const save = (s: TimerState) => {
-    try {
-      localStorage.setItem(TIMER_KEY, JSON.stringify(s));
-    } catch {}
-  };
-
-  useEffect(() => {
-    if (!mounted || !state.running) return;
-    const id = setInterval(() => {
-      setState((s) => {
-        const next = { ...s, elapsed: s.elapsed + 1 };
-        if (s.mode === "countdown" && next.elapsed >= s.limit * 60) {
-          const done = {
-            ...next,
-            elapsed: s.limit * 60,
-            running: false,
-            startedAt: null,
-          };
-          save(done);
-          return done;
-        }
-        save(next);
-        return next;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [mounted, state.running]);
-
-  const start = () =>
-    setState((s) => {
-      const n = { ...s, running: true, startedAt: Date.now() };
-      save(n);
-      return n;
-    });
-  const pause = () =>
-    setState((s) => {
-      const n = { ...s, running: false, startedAt: null };
-      save(n);
-      return n;
-    });
-  const reset = () =>
-    setState((s) => {
-      const n = { ...s, running: false, elapsed: 0, startedAt: null };
-      save(n);
-      return n;
-    });
-  const setMode = (m: TimerMode) =>
-    setState((s) => {
-      const n = { ...s, mode: m, running: false, elapsed: 0, startedAt: null };
-      save(n);
-      return n;
-    });
-  const setLimit = (l: number) =>
-    setState((s) => {
-      const n = { ...s, limit: l, elapsed: 0, running: false };
-      save(n);
-      return n;
-    });
-
-  const display =
-    state.mode === "countdown"
-      ? Math.max(0, state.limit * 60 - state.elapsed)
-      : state.elapsed;
-  const mm = String(Math.floor(display / 60)).padStart(2, "0");
-  const ss = String(display % 60).padStart(2, "0");
-  const pct =
-    state.mode === "countdown" ? (state.elapsed / (state.limit * 60)) * 100 : 0;
-  const urgent =
-    state.mode === "countdown" && display <= 60 && display > 0 && state.running;
-  const active = state.running || state.elapsed > 0;
-
-  return {
-    state,
-    mounted,
-    mm,
-    ss,
-    pct,
-    urgent,
-    active,
-    start,
-    pause,
-    reset,
-    setMode,
-    setLimit,
-  };
-}
-
-function TimerWidget({ timer }: { timer: ReturnType<typeof useTimer> }) {
-  const { state, mm, ss, pct, urgent, start, pause, reset, setMode, setLimit } =
-    timer;
-  const [inputMin, setInputMin] = useState(String(state.limit));
-
-  return (
-    <div className="flex flex-col gap-3 p-4">
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant={state.mode === "stopwatch" ? "default" : "outline"}
-          className="flex-1 text-sm h-9"
-          onClick={() => setMode("stopwatch")}
-        >
-          Stopwatch
-        </Button>
-        <Button
-          size="sm"
-          variant={state.mode === "countdown" ? "default" : "outline"}
-          className="flex-1 text-sm h-9"
-          onClick={() => setMode("countdown")}
-        >
-          Countdown
-        </Button>
-      </div>
-      <div
-        className={cn(
-          "flex flex-col items-center gap-2 py-5 rounded-lg border border-border",
-          urgent && "border-foreground/60",
-        )}
-      >
-        <span
-          className={cn(
-            "text-5xl font-mono font-semibold tabular-nums tracking-widest",
-            urgent && "animate-pulse",
-          )}
-        >
-          {mm}:{ss}
-        </span>
-        {state.mode === "countdown" && (
-          <Progress value={pct} className="h-1.5 w-3/4" />
-        )}
-      </div>
-      {state.mode === "countdown" && !state.running && (
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground shrink-0">
-            Minutes
-          </Label>
-          <Input
-            className="h-9 text-sm"
-            value={inputMin}
-            type="number"
-            min={1}
-            max={180}
-            onChange={(e) => {
-              setInputMin(e.target.value);
-              const n = parseInt(e.target.value);
-              if (!isNaN(n) && n > 0) setLimit(n);
-            }}
-          />
-        </div>
-      )}
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-9 flex-1 gap-2 text-sm"
-          onClick={state.running ? pause : start}
-        >
-          {state.running ? (
-            <Pause className="w-4 h-4" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
-          {state.running ? "Pause" : "Start"}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-9 w-9 p-0"
-          onClick={reset}
-        >
-          <RotateCcw className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  CANVAS NOTES
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const PALETTE = [
-  "#000000",
-  "#ffffff",
-  "#ef4444",
-  "#f59e0b",
-  "#22c55e",
-  "#3b82f6",
-  "#a855f7",
-  "#ec4899",
-  "#6b7280",
-  "#0891b2",
-];
-
-function CanvasNotes() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawingRef = useRef(false);
-  const strokeRef = useRef<CanvasStroke | null>(null);
-  const startPtRef = useRef<CanvasPoint | null>(null);
-  const allStrokes = useRef<CanvasStroke[]>([]);
-  const [tool, setTool] = useState<DrawTool>("pen");
-  const [color, setColor] = useState("#000000");
-  const [size, setSize] = useState(3);
-  const [textPos, setTextPos] = useState<CanvasPoint | null>(null);
-  const [textInput, setTextInput] = useState("");
-  const [, tick] = useState(0);
-
-  const getCtx = () => {
-    const c = canvasRef.current;
-    return c ? c.getContext("2d") : null;
-  };
-
-  const redraw = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = getCtx();
-    if (!canvas || !ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    allStrokes.current.forEach((s) => {
-      ctx.save();
-      ctx.strokeStyle = s.color;
-      ctx.fillStyle = s.color;
-      ctx.lineWidth = s.size;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      if (s.tool === "eraser") {
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.beginPath();
-        s.points.forEach((p, i) =>
-          i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y),
-        );
-        ctx.stroke();
-      } else if (s.tool === "pen") {
-        ctx.beginPath();
-        s.points.forEach((p, i) =>
-          i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y),
-        );
-        ctx.stroke();
-      } else if (s.tool === "line" && s.points.length >= 2) {
-        ctx.beginPath();
-        ctx.moveTo(s.points[0].x, s.points[0].y);
-        ctx.lineTo(
-          s.points[s.points.length - 1].x,
-          s.points[s.points.length - 1].y,
-        );
-        ctx.stroke();
-      } else if (s.tool === "rect" && s.points.length >= 2) {
-        const [a, b] = [s.points[0], s.points[s.points.length - 1]];
-        ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
-      } else if (s.tool === "circle" && s.points.length >= 2) {
-        const [a, b] = [s.points[0], s.points[s.points.length - 1]];
-        const rx = Math.abs(b.x - a.x) / 2,
-          ry = Math.abs(b.y - a.y) / 2;
-        ctx.beginPath();
-        ctx.ellipse(
-          a.x + (b.x - a.x) / 2,
-          a.y + (b.y - a.y) / 2,
-          rx || 1,
-          ry || 1,
-          0,
-          0,
-          Math.PI * 2,
-        );
-        ctx.stroke();
-      } else if (s.tool === "text" && s.text && s.points[0]) {
-        ctx.font = `${s.size * 5 + 10}px Inter, sans-serif`;
-        ctx.fillText(s.text, s.points[0].x, s.points[0].y);
-      }
-      ctx.restore();
-    });
-  }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (!parent) return;
-    const ro = new ResizeObserver(() => {
-      const { width, height } = parent.getBoundingClientRect();
-      canvas.width = Math.max(1, width);
-      canvas.height = Math.max(1, height);
-      redraw();
-    });
-    ro.observe(parent);
-    const { width, height } = parent.getBoundingClientRect();
-    canvas.width = Math.max(1, width);
-    canvas.height = Math.max(1, height);
-    return () => ro.disconnect();
-  }, [redraw]);
-
-  const getPos = (e: React.PointerEvent<HTMLCanvasElement>): CanvasPoint => {
-    const r = canvasRef.current!.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
-  };
-
-  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (tool === "text") {
-      setTextPos(getPos(e));
-      return;
-    }
-    const pt = getPos(e);
-    (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
-    drawingRef.current = true;
-    startPtRef.current = pt;
-    strokeRef.current = { tool, color, size, points: [pt] };
-  };
-
-  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawingRef.current || !strokeRef.current) return;
-    const ctx = getCtx();
-    if (!ctx) return;
-    const pt = getPos(e);
-    if (tool === "pen" || tool === "eraser") {
-      strokeRef.current.points.push(pt);
-      const pts = strokeRef.current.points;
-      ctx.save();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = size;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.globalCompositeOperation =
-        tool === "eraser" ? "destination-out" : "source-over";
-      if (pts.length >= 2) {
-        ctx.beginPath();
-        ctx.moveTo(pts[pts.length - 2].x, pts[pts.length - 2].y);
-        ctx.lineTo(pt.x, pt.y);
-        ctx.stroke();
-      }
-      ctx.restore();
-    } else {
-      strokeRef.current.points = [startPtRef.current!, pt];
-      redraw();
-      ctx.save();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = size;
-      ctx.lineCap = "round";
-      if (tool === "line") {
-        ctx.beginPath();
-        ctx.moveTo(startPtRef.current!.x, startPtRef.current!.y);
-        ctx.lineTo(pt.x, pt.y);
-        ctx.stroke();
-      } else if (tool === "rect") {
-        ctx.strokeRect(
-          startPtRef.current!.x,
-          startPtRef.current!.y,
-          pt.x - startPtRef.current!.x,
-          pt.y - startPtRef.current!.y,
-        );
-      } else if (tool === "circle") {
-        const rx = Math.abs(pt.x - startPtRef.current!.x) / 2,
-          ry = Math.abs(pt.y - startPtRef.current!.y) / 2;
-        ctx.beginPath();
-        ctx.ellipse(
-          startPtRef.current!.x + (pt.x - startPtRef.current!.x) / 2,
-          startPtRef.current!.y + (pt.y - startPtRef.current!.y) / 2,
-          rx || 1,
-          ry || 1,
-          0,
-          0,
-          Math.PI * 2,
-        );
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-  };
-
-  const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawingRef.current || !strokeRef.current) return;
-    drawingRef.current = false;
-    if (tool !== "pen" && tool !== "eraser")
-      strokeRef.current.points = [startPtRef.current!, getPos(e)];
-    allStrokes.current = [...allStrokes.current, strokeRef.current];
-    strokeRef.current = null;
-    tick((n) => n + 1);
-    redraw();
-  };
-
-  const commitText = () => {
-    if (!textInput.trim() || !textPos) return;
-    allStrokes.current = [
-      ...allStrokes.current,
-      { tool: "text", color, size, points: [textPos], text: textInput },
-    ];
-    tick((n) => n + 1);
-    redraw();
-    setTextInput("");
-    setTextPos(null);
-  };
-
-  const undo = () => {
-    allStrokes.current = allStrokes.current.slice(0, -1);
-    tick((n) => n + 1);
-    redraw();
-  };
-  const clear = () => {
-    allStrokes.current = [];
-    tick((n) => n + 1);
-    redraw();
-  };
-
-  const tools: { id: DrawTool; icon: typeof PenLine; label: string }[] = [
-    { id: "pen", icon: PenLine, label: "Pen" },
-    { id: "eraser", icon: Eraser, label: "Eraser" },
-    { id: "line", icon: Minus, label: "Line" },
-    { id: "rect", icon: Square, label: "Rectangle" },
-    { id: "circle", icon: Circle, label: "Ellipse" },
-    { id: "text", icon: FileText, label: "Text" },
-  ];
-
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border flex-wrap shrink-0 bg-background">
-        <div className="flex gap-0.5">
-          {tools.map(({ id, icon: Icon, label }) => (
-            <TooltipProvider key={id} delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant={tool === id ? "default" : "ghost"}
-                    className="h-7 w-7"
-                    onClick={() => setTool(id)}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {label}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ))}
-        </div>
-        <Separator orientation="vertical" className="h-5" />
-        <div className="flex gap-1">
-          {PALETTE.map((c) => (
-            <button
-              key={c}
-              onClick={() => setColor(c)}
-              className={cn(
-                "w-4 h-4 rounded-sm border-2 transition-all",
-                color === c
-                  ? "border-foreground scale-110"
-                  : "border-border/50",
-              )}
-              style={{ background: c }}
-            />
-          ))}
-        </div>
-        <Separator orientation="vertical" className="h-5" />
-        <div className="flex items-center gap-2 w-28">
-          <span className="text-xs text-muted-foreground shrink-0">Size</span>
-          <Slider
-            value={[size]}
-            onValueChange={([v]) => setSize(v)}
-            min={1}
-            max={20}
-            step={1}
-            className="flex-1"
-          />
-        </div>
-        <Separator orientation="vertical" className="h-5" />
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={undo}
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              Undo
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7"
-                onClick={clear}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              Clear all
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-      <div className="relative flex-1 overflow-hidden bg-background">
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 touch-none"
-          style={{
-            cursor:
-              tool === "eraser"
-                ? "cell"
-                : tool === "text"
-                  ? "text"
-                  : "crosshair",
-          }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-        />
-        {textPos && (
-          <div
-            className="absolute z-10 flex gap-2"
-            style={{ left: textPos.x, top: Math.max(0, textPos.y - 40) }}
-          >
-            <Input
-              autoFocus
-              className="h-8 text-xs w-36"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitText();
-                if (e.key === "Escape") setTextPos(null);
-              }}
-              placeholder="Type & Enter"
-            />
-            <Button size="sm" className="h-8 text-xs" onClick={commitText}>
-              Add
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  SQL EDITOR — FIXED
-//
-//  Root cause of the click-offset bug:
-//  The highlight <pre> used position:absolute with padding, which made its
-//  rendered bounding box differ from the textarea's. When the pre was scrolled
-//  via transform, the visual glyphs were offset from the textarea's internal
-//  character positions. Clicks that looked like they landed on "rk" actually
-//  landed in the transparent textarea at the correct coordinate, but the
-//  textarea's own character mapping was wrong because its scrollLeft was being
-//  driven by us — not by its natural layout.
-//
-//  Fix: use a single-container approach where both layers share the EXACT same
-//  padding box and the pre never moves independently. We sync the pre's
-//  scrollTop/scrollLeft by reading the textarea's scroll position in an
-//  animation frame rather than via transform, which avoids fractional-pixel
-//  drift. The textarea always controls scrolling; the pre just mirrors it.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const SQL_KEYWORDS = [
-  "SELECT",
-  "FROM",
-  "WHERE",
-  "JOIN",
-  "LEFT JOIN",
-  "RIGHT JOIN",
-  "INNER JOIN",
-  "CROSS JOIN",
-  "ON",
-  "AS",
-  "GROUP BY",
-  "ORDER BY",
-  "HAVING",
-  "LIMIT",
-  "OFFSET",
-  "DISTINCT",
-  "UNION",
-  "WITH",
-  "RECURSIVE",
-  "CASE",
-  "WHEN",
-  "THEN",
-  "ELSE",
-  "END",
-  "INSERT INTO",
-  "VALUES",
-  "UPDATE",
-  "SET",
-  "DELETE FROM",
-  "CREATE TABLE",
-  "DROP TABLE",
-  "ALTER TABLE",
-  "NOT NULL",
-  "PRIMARY KEY",
-  "FOREIGN KEY",
-  "REFERENCES",
-  "DEFAULT",
-  "UNIQUE",
-  "INDEX",
-  "DENSE_RANK",
-  "RANK",
-  "ROW_NUMBER",
-  "NTILE",
-  "OVER",
-  "PARTITION BY",
-  "LAG",
-  "LEAD",
-  "COALESCE",
-  "NULLIF",
-  "CAST",
-  "COUNT",
-  "SUM",
-  "AVG",
-  "MIN",
-  "MAX",
-  "ROUND",
-  "FLOOR",
-  "CEIL",
-  "NOW",
-  "DATE",
-  "CURRENT_DATE",
-  "UPPER",
-  "LOWER",
-  "TRIM",
-  "LENGTH",
-  "CONCAT",
-  "INT",
-  "INTEGER",
-  "BIGINT",
-  "VARCHAR",
-  "TEXT",
-  "BOOLEAN",
-  "TIMESTAMP",
-  "SERIAL",
-];
-
-function buildHighlight(code: string): string {
-  // Escape HTML first
-  let r = code
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  // Strings (before keywords so we don't keyword-highlight inside strings)
-  r = r.replace(/'([^']*)'/g, `<span class="sql-str">'$1'</span>`);
-  // Comments
-  r = r.replace(/(--[^\n]*)/g, `<span class="sql-cmt">$1</span>`);
-  // Keywords — longest first to avoid partial matches (e.g. "PARTITION BY" before "PARTITION")
-  const sorted = [...SQL_KEYWORDS].sort((a, b) => b.length - a.length);
-  sorted.forEach((kw) => {
-    const rx = new RegExp(`\\b(${kw.replace(/ /g, "\\s+")})\\b`, "gi");
-    r = r.replace(rx, `<span class="sql-kw">$1</span>`);
+// ── ScrollProgress ────────────────────────────────────────────────────────────
+function ScrollProgress() {
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 200,
+    damping: 50,
+    restDelta: 0.001,
   });
-  // Numbers
-  r = r.replace(/\b(\d+)\b/g, `<span class="sql-num">$1</span>`);
-  return r;
+  return (
+    <motion.div
+      className="fixed inset-x-0 top-0 z-[100] h-[3px] origin-left bg-foreground"
+      style={{ scaleX }}
+    />
+  );
 }
 
-function SQLEditor({
-  value,
-  onChange,
-  dialect,
+// ── DotPattern ────────────────────────────────────────────────────────────────
+function DotPattern({
+  width = 16,
+  height = 16,
+  cx = 1,
+  cy = 1,
+  cr = 1,
+  className,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  dialect: Dialect;
+  width?: number;
+  height?: number;
+  cx?: number;
+  cy?: number;
+  cr?: number;
+  className?: string;
 }) {
-  const taRef = useRef<HTMLTextAreaElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
-  const rafRef = useRef<number | null>(null);
+  const id = useId();
+  return (
+    <svg
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute inset-0 h-full w-full",
+        className,
+      )}
+    >
+      <defs>
+        <pattern
+          id={id}
+          width={width}
+          height={height}
+          patternUnits="userSpaceOnUse"
+        >
+          <circle cx={cx} cy={cy} r={cr} />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" strokeWidth={0} fill={`url(#${id})`} />
+    </svg>
+  );
+}
 
-  // Mirror textarea scroll to pre by directly setting scrollLeft/scrollTop.
-  // This is pixel-perfect and never causes layout drift.
-  const syncScroll = useCallback(() => {
-    const ta = taRef.current;
-    const pre = preRef.current;
-    if (!ta || !pre) return;
-    pre.scrollTop = ta.scrollTop;
-    pre.scrollLeft = ta.scrollLeft;
-  }, []);
+// ── BlurFade ──────────────────────────────────────────────────────────────────
+function BlurFade({
+  children,
+  className,
+  duration = 0.4,
+  delay = 0,
+  yOffset = 8,
+  inView: enableInView = false,
+  blur = "6px",
+}: {
+  children: ReactNode;
+  className?: string;
+  duration?: number;
+  delay?: number;
+  yOffset?: number;
+  inView?: boolean;
+  blur?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inViewResult = useInView(ref, {
+    once: true,
+    margin: "-40px" as `${number}px`,
+  });
+  const isVisible = !enableInView || inViewResult;
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: yOffset, filter: `blur(${blur})` }}
+      animate={isVisible ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
+      transition={{
+        delay: 0.04 + delay,
+        duration,
+        ease: [0.21, 0.47, 0.32, 0.98],
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
-  const scheduleSync = useCallback(() => {
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => {
-      syncScroll();
-      rafRef.current = null;
-    });
-  }, [syncScroll]);
+// ── NumberTicker ──────────────────────────────────────────────────────────────
+function NumberTicker({
+  value,
+  delay = 0,
+  className,
+}: {
+  value: number;
+  delay?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const motionVal = useMotionValue(0);
+  const spring = useSpring(motionVal, { damping: 60, stiffness: 100 });
+  const isInView = useInView(ref, { once: true });
+
+  useEffect(() => {
+    if (isInView) setTimeout(() => motionVal.set(value), delay * 1000);
+  }, [isInView, delay, motionVal, value]);
 
   useEffect(
-    () => () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    },
-    [],
+    () =>
+      spring.on("change", (v) => {
+        if (ref.current) ref.current.textContent = String(Math.round(v));
+      }),
+    [spring],
   );
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const ta = taRef.current!;
-      const s = ta.selectionStart;
-      const en = ta.selectionEnd;
-      const next = value.slice(0, s) + "  " + value.slice(en);
-      onChange(next);
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = s + 2;
-      });
-    }
-  };
-
-  // Shared style values — must match exactly between textarea and pre
-  const SHARED_STYLE: React.CSSProperties = {
-    fontFamily:
-      "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
-    fontSize: "13px",
-    lineHeight: "1.625rem", // 26px
-    tabSize: 2,
-    padding: "0.75rem",
-    margin: 0,
-    whiteSpace: "pre",
-    wordBreak: "normal",
-    overflowWrap: "normal",
-  };
-
   return (
-    <>
-      <style>{`
-        .sql-editor-root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--sql-bg); color: var(--sql-fg); }
-
-        /* The pre mirrors the textarea scroll exactly. It must NOT have its own
-           scrollbar — we set overflow:hidden and drive scrollTop/scrollLeft from JS.
-           This guarantees every character in the pre maps 1:1 to the textarea. */
-        .sql-editor-root pre {
-          position: absolute;
-          inset: 0;
-          overflow: hidden !important;   /* no independent scrollbar */
-          pointer-events: none !important;
-          user-select: none;
-        }
-
-        /* The textarea is fully transparent text but retains the real cursor.
-           overflow:auto lets it scroll naturally; we mirror that scroll to the pre. */
-        .sql-editor-root textarea {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          background: transparent;
-          color: transparent;
-          caret-color: var(--sql-fg);
-          resize: none;
-          border: none;
-          outline: none;
-          overflow: auto;
-        }
-
-        .sql-editor-root .sql-kw  { color: var(--sql-kw); font-weight: 600; }
-        .sql-editor-root .sql-str { color: var(--sql-str); }
-        .sql-editor-root .sql-cmt { color: var(--sql-cmt); font-style: italic; }
-        .sql-editor-root .sql-num { color: var(--sql-num); }
-
-        :root {
-          --sql-kw:  #1e40af; --sql-str: #047857; --sql-cmt: #9ca3af; --sql-num: #7c3aed;
-          --sql-bg:  #ffffff; --sql-fg:  #111827;
-        }
-        .dark {
-          --sql-kw:  #60a5fa; --sql-str: #86efac; --sql-cmt: #64748b; --sql-num: #c084fc;
-          --sql-bg:  #0a0a0a; --sql-fg:  #e2e8f0;
-        }
-
-        .sql-dialect-badge {
-          position: absolute; bottom: 0.5rem; right: 0.75rem;
-          font-size: 10px; font-family: monospace; opacity: 0.3;
-          color: var(--sql-fg); pointer-events: none; user-select: none;
-        }
-      `}</style>
-
-      <div className="sql-editor-root">
-        {/* Highlight layer — overflow:hidden, scroll synced from JS */}
-        <pre
-          ref={preRef}
-          aria-hidden="true"
-          style={SHARED_STYLE}
-          dangerouslySetInnerHTML={{ __html: buildHighlight(value) + "\n" }}
-        />
-
-        {/* Interactive layer — controls scrolling, transparent text */}
-        <textarea
-          ref={taRef}
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            scheduleSync();
-          }}
-          onKeyDown={handleKeyDown}
-          onScroll={scheduleSync}
-          spellCheck={false}
-          autoComplete="off"
-          autoCorrect="off"
-          style={{
-            ...SHARED_STYLE,
-            color: "transparent",
-            caretColor: "var(--sql-fg)",
-          }}
-        />
-
-        <span className="sql-dialect-badge">
-          {DIALECTS.find((d) => d.value === dialect)?.label}
-        </span>
-      </div>
-    </>
+    <span ref={ref} className={cn("tabular-nums", className)}>
+      0
+    </span>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-//  DRAGGABLE DIVIDER
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function DraggableDivider({
-  onDrag,
-  direction = "horizontal",
+// ── BorderBeam ────────────────────────────────────────────────────────────────
+function BorderBeam({
+  size = 300,
+  duration = 14,
+  delay = 0,
+  colorFrom = "hsl(var(--foreground))",
+  colorTo = "transparent",
+  borderWidth = 1.5,
+  className,
 }: {
-  onDrag: (d: number) => void;
-  direction?: "horizontal" | "vertical";
+  size?: number;
+  duration?: number;
+  delay?: number;
+  colorFrom?: string;
+  colorTo?: string;
+  borderWidth?: number;
+  className?: string;
 }) {
-  const active = useRef(false);
-  const last = useRef(0);
   return (
     <div
+      style={
+        {
+          "--size": size,
+          "--duration": duration,
+          "--delay": `-${delay}s`,
+          "--color-from": colorFrom,
+          "--color-to": colorTo,
+          "--border-width": `${borderWidth}px`,
+        } as CSSProperties
+      }
       className={cn(
-        "group flex items-center justify-center shrink-0 transition-colors select-none hover:bg-foreground/10",
-        direction === "horizontal"
-          ? "w-2 cursor-col-resize h-full"
-          : "h-2 cursor-row-resize w-full",
+        "pointer-events-none absolute inset-0 rounded-[inherit] [border:var(--border-width)_solid_transparent]",
+        // light
+        "[background:linear-gradient(white,white)_padding-box,linear-gradient(calc(var(--beam-angle,0)*1deg),var(--color-from),var(--color-to),var(--color-from))_border-box]",
+        // dark
+        "dark:[background:linear-gradient(hsl(var(--background)),hsl(var(--background)))_padding-box,linear-gradient(calc(var(--beam-angle,0)*1deg),var(--color-from),var(--color-to),var(--color-from))_border-box]",
+        "[animation:border-beam-spin_calc(var(--duration)*1s)_var(--delay)_linear_infinite]",
+        className,
       )}
-      onPointerDown={(e) => {
-        active.current = true;
-        last.current = direction === "horizontal" ? e.clientX : e.clientY;
-        (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-      }}
-      onPointerMove={(e) => {
-        if (!active.current) return;
-        const cur = direction === "horizontal" ? e.clientX : e.clientY;
-        onDrag(cur - last.current);
-        last.current = cur;
-      }}
-      onPointerUp={() => {
-        active.current = false;
-      }}
+    />
+  );
+}
+
+// ── InteractiveHoverButton ────────────────────────────────────────────────────
+// Faithful to Magic UI spec: text slides left, arrow slides in from right on hover
+function InteractiveHoverButton({
+  children,
+  className,
+  onClick,
+}: {
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        // base
+        "group relative inline-flex h-10 cursor-pointer items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-md border border-input bg-background px-5 text-sm font-medium text-foreground shadow-xs transition-colors duration-200 font-[Inter,sans-serif]",
+        // hover: invert colours
+        "hover:border-foreground hover:bg-foreground hover:text-background",
+        className,
+      )}
     >
-      {direction === "horizontal" ? (
-        <GripVertical className="w-3 h-3 text-muted-foreground/40 group-hover:text-foreground/50" />
-      ) : (
-        <GripHorizontal className="w-3 h-3 text-muted-foreground/40 group-hover:text-foreground/50" />
-      )}
+      {/* label shifts left */}
+      <span className="relative z-10 flex items-center gap-2 transition-transform duration-200 group-hover:-translate-x-2">
+        {children}
+      </span>
+      {/* arrow enters from off-screen right */}
+      <ArrowRight className="absolute right-4 z-10 w-4 h-4 translate-x-6 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100" />
+    </button>
+  );
+}
+
+// ── AnimatedCircularProgressBar ───────────────────────────────────────────────
+function AnimatedCircularProgressBar({
+  value,
+  gaugePrimaryColor = "hsl(var(--foreground))",
+  gaugeSecondaryColor = "hsl(var(--muted))",
+}: {
+  value: number;
+  gaugePrimaryColor?: string;
+  gaugeSecondaryColor?: string;
+}) {
+  const circumference = 2 * Math.PI * 45;
+  const pct = Math.min(Math.max(value, 0), 100);
+  const offset = circumference - (pct / 100) * circumference;
+  return (
+    <div className="relative size-full">
+      <svg
+        viewBox="0 0 100 100"
+        xmlns="http://www.w3.org/2000/svg"
+        className="size-full -rotate-90"
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          strokeWidth="10"
+          fill="none"
+          style={{
+            stroke: gaugeSecondaryColor,
+            strokeDasharray: `${circumference}`,
+            strokeDashoffset: 0,
+          }}
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="45"
+          strokeWidth="10"
+          fill="none"
+          strokeLinecap="round"
+          style={{
+            stroke: gaugePrimaryColor,
+            strokeDasharray: `${circumference}`,
+            strokeDashoffset: offset,
+            transition: "stroke-dashoffset 1s ease",
+          }}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular-nums">
+        {Math.round(pct)}%
+      </span>
+    </div>
+  );
+}
+
+// ── CompletedBanner — shown on 100% tracks ────────────────────────────────────
+function CompletedBanner() {
+  return (
+    <div className="relative flex items-center justify-center gap-2 overflow-hidden rounded-md border border-border bg-foreground px-4 py-2.5">
+      <Sparkles className="w-4 h-4 text-background shrink-0" />
+      <span className="text-sm font-semibold text-background tracking-wide">
+        Track Completed
+      </span>
+      <Trophy className="w-4 h-4 text-background shrink-0" />
+      {/* subtle shimmer sweep */}
+      <div className="pointer-events-none absolute inset-0 [background:linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.15)_50%,transparent_100%)] [animation:shimmer-sweep_2.5s_linear_infinite] [background-size:200%_100%]" />
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  SIMULATE RUN
+//  DATA TYPES & MOCK DATA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function simulateRun(sql: string): Promise<RunResult> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (!sql.trim()) {
-        resolve({ status: "error", error: "Empty query." });
-        return;
-      }
-      const lc = sql.toLowerCase();
-      if (lc.includes("dense_rank") && lc.includes("partition by")) {
-        resolve({
-          status: "accepted",
-          runtime: "118ms",
-          passedCases: 6,
-          totalCases: 6,
-          rows: PROBLEM.exampleOutput,
-        });
-      } else {
-        resolve({
-          status: "wrong",
-          runtime: "201ms",
-          passedCases: 2,
-          totalCases: 6,
-          rows: PROBLEM.exampleOutput.slice(0, 2),
-        });
-      }
-    }, 1100);
-  });
+type ItemStatus = "completed" | "in-progress" | "locked";
+
+interface Problem {
+  id: number;
+  title: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  completed: boolean;
 }
 
+interface Lesson {
+  id: number;
+  title: string;
+  description: string;
+  type: "lesson" | "challenge";
+  status: ItemStatus;
+  completed: boolean;
+  duration?: string;
+  problem?: Problem;
+  whatYouLearn: string[];
+  objectives: string[];
+}
+
+interface Track {
+  id: number;
+  title: string;
+  description: string;
+  icon: typeof BookOpen;
+  tag: "Beginner" | "Intermediate" | "Advanced";
+  totalLessons: number;
+  lessons: Lesson[];
+}
+
+const TRACKS: Track[] = [
+  {
+    id: 1,
+    title: "SQL Foundations",
+    description:
+      "Master the core syntax — SELECT, WHERE, ORDER BY, and filtering. The essential building blocks every SQL developer must know.",
+    icon: BookOpen,
+    tag: "Beginner",
+    totalLessons: 6,
+    lessons: [
+      {
+        id: 1,
+        title: "Introduction to SELECT",
+        description:
+          "Learn how to retrieve data from a single table using the SELECT statement — the most fundamental SQL command.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "5 min",
+        whatYouLearn: [
+          "The anatomy of a SELECT statement",
+          "How to pick specific columns",
+          "Using * to retrieve all columns",
+          "Column aliases with AS",
+        ],
+        objectives: [
+          "Write a basic SELECT query",
+          "Select specific columns from a table",
+          "Use column aliases",
+        ],
+        problem: {
+          id: 101,
+          title: "Select All Columns",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+      {
+        id: 2,
+        title: "Filtering with WHERE",
+        description:
+          "Use conditional clauses to precisely narrow down which rows your query returns.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "8 min",
+        whatYouLearn: [
+          "Comparison operators (=, !=, <, >)",
+          "Logical operators AND / OR / NOT",
+          "Combining multiple conditions",
+          "String and numeric comparisons",
+        ],
+        objectives: [
+          "Filter rows with WHERE",
+          "Combine conditions with AND/OR",
+          "Use NOT to exclude values",
+        ],
+        problem: {
+          id: 102,
+          title: "Find Active Users",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+      {
+        id: 3,
+        title: "Sorting with ORDER BY",
+        description:
+          "Control the order in which your results appear using ASC and DESC sorting.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "6 min",
+        whatYouLearn: [
+          "ASC vs DESC ordering",
+          "Sorting by multiple columns",
+          "Nulls in ordered results",
+        ],
+        objectives: [
+          "Sort query results",
+          "Use multi-column sort",
+          "Understand NULL ordering",
+        ],
+        problem: {
+          id: 103,
+          title: "Top Earners",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+      {
+        id: 4,
+        title: "Limiting Results",
+        description:
+          "Efficiently paginate and restrict result sets using LIMIT and OFFSET.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "5 min",
+        whatYouLearn: [
+          "LIMIT clause syntax",
+          "OFFSET for pagination",
+          "Combining LIMIT with ORDER BY",
+        ],
+        objectives: ["Restrict rows with LIMIT", "Implement basic pagination"],
+        problem: {
+          id: 104,
+          title: "Second Highest Salary",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+      {
+        id: 5,
+        title: "NULL Handling",
+        description:
+          "Understand the three-valued logic of NULLs and learn to handle missing values safely.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "7 min",
+        whatYouLearn: [
+          "IS NULL / IS NOT NULL",
+          "COALESCE to provide defaults",
+          "NULLIF for conditional nulls",
+          "Why NULL ≠ NULL",
+        ],
+        objectives: [
+          "Detect NULL values",
+          "Replace NULLs using COALESCE",
+          "Avoid common NULL pitfalls",
+        ],
+        problem: {
+          id: 105,
+          title: "Null Safe Queries",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+      {
+        id: 6,
+        title: "Pattern Matching",
+        description:
+          "Search string data flexibly using LIKE and wildcard characters.",
+        type: "challenge",
+        status: "completed",
+        completed: true,
+        whatYouLearn: [
+          "LIKE with % and _ wildcards",
+          "Case sensitivity nuances",
+          "NOT LIKE exclusions",
+        ],
+        objectives: ["Match strings with LIKE", "Apply wildcards correctly"],
+        problem: {
+          id: 106,
+          title: "Find Email Domains",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+    ],
+  },
+  {
+    id: 2,
+    title: "Joins & Relationships",
+    description:
+      "Combine data across multiple tables using INNER, LEFT, RIGHT, and FULL OUTER joins. Understand relational design.",
+    icon: Layers,
+    tag: "Intermediate",
+    totalLessons: 6,
+    lessons: [
+      {
+        id: 7,
+        title: "INNER JOIN",
+        description:
+          "Fetch only the rows that have matching values in both tables.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "10 min",
+        whatYouLearn: [
+          "JOIN syntax",
+          "ON clause conditions",
+          "Matching foreign keys",
+          "Aliasing tables",
+        ],
+        objectives: ["Write an INNER JOIN", "Understand matching rows only"],
+        problem: {
+          id: 201,
+          title: "Employees & Departments",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+      {
+        id: 8,
+        title: "LEFT & RIGHT JOIN",
+        description:
+          "Include unmatched rows from either the left or right table.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "9 min",
+        whatYouLearn: [
+          "LEFT JOIN keeps all left rows",
+          "RIGHT JOIN keeps all right rows",
+          "NULL for unmatched sides",
+        ],
+        objectives: [
+          "Use LEFT JOIN for optional relationships",
+          "Detect missing data",
+        ],
+        problem: {
+          id: 202,
+          title: "Customers Who Never Ordered",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+      {
+        id: 9,
+        title: "FULL OUTER JOIN",
+        description:
+          "Combine all rows from both tables, filling NULLs where there is no match.",
+        type: "lesson",
+        status: "in-progress",
+        completed: false,
+        duration: "8 min",
+        whatYouLearn: [
+          "FULL OUTER JOIN semantics",
+          "When to use it",
+          "Simulating it in MySQL with UNION",
+        ],
+        objectives: [
+          "Combine all rows from two tables",
+          "Handle both-side NULLs",
+        ],
+      },
+      {
+        id: 10,
+        title: "Self JOIN",
+        description:
+          "Join a table to itself to model hierarchical or comparative relationships.",
+        type: "lesson",
+        status: "locked",
+        completed: false,
+        duration: "11 min",
+        whatYouLearn: [
+          "Self-join aliasing pattern",
+          "Employee-manager hierarchies",
+          "Comparing rows within same table",
+        ],
+        objectives: ["Write a self join", "Model hierarchy queries"],
+        problem: {
+          id: 203,
+          title: "Employee Manager Chain",
+          difficulty: "Medium",
+          completed: false,
+        },
+      },
+      {
+        id: 11,
+        title: "Multi-Table Joins",
+        description:
+          "Chain three or more tables in a single query without losing data integrity.",
+        type: "challenge",
+        status: "locked",
+        completed: false,
+        whatYouLearn: [
+          "Join chain syntax",
+          "Controlling join order",
+          "Debugging missing rows",
+        ],
+        objectives: ["Write a 3-table join", "Trace row multiplication"],
+        problem: {
+          id: 204,
+          title: "Orders with Products & Customers",
+          difficulty: "Medium",
+          completed: false,
+        },
+      },
+      {
+        id: 12,
+        title: "Join Optimization",
+        description:
+          "Write efficient joins and avoid Cartesian products and unnecessary scans.",
+        type: "lesson",
+        status: "locked",
+        completed: false,
+        duration: "12 min",
+        whatYouLearn: [
+          "Cartesian product pitfalls",
+          "Index usage in joins",
+          "EXPLAIN basics",
+        ],
+        objectives: ["Avoid common join mistakes", "Understand query plans"],
+      },
+    ],
+  },
+  {
+    id: 3,
+    title: "Aggregations & Grouping",
+    description:
+      "Use COUNT, SUM, AVG, MIN, MAX with GROUP BY and HAVING to summarize and analyze data at scale.",
+    icon: Code2,
+    tag: "Intermediate",
+    totalLessons: 5,
+    lessons: [
+      {
+        id: 13,
+        title: "Aggregate Functions",
+        description:
+          "Calculate summary statistics across entire tables or subsets of rows.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "8 min",
+        whatYouLearn: [
+          "COUNT, SUM, AVG, MIN, MAX",
+          "COUNT(*) vs COUNT(col)",
+          "Ignoring NULLs in aggregates",
+        ],
+        objectives: [
+          "Use all five aggregate functions",
+          "Understand NULL behavior",
+        ],
+        problem: {
+          id: 301,
+          title: "Department Stats",
+          difficulty: "Easy",
+          completed: true,
+        },
+      },
+      {
+        id: 14,
+        title: "GROUP BY",
+        description:
+          "Group rows sharing a value and compute aggregates per group.",
+        type: "lesson",
+        status: "completed",
+        completed: true,
+        duration: "10 min",
+        whatYouLearn: [
+          "GROUP BY single and multiple columns",
+          "Non-aggregated columns rule",
+          "Combining with ORDER BY",
+        ],
+        objectives: ["Group and aggregate data", "Sort grouped results"],
+        problem: {
+          id: 302,
+          title: "Sales by Region",
+          difficulty: "Medium",
+          completed: false,
+        },
+      },
+      {
+        id: 15,
+        title: "HAVING Clause",
+        description:
+          "Filter grouped results after aggregation — the post-group WHERE.",
+        type: "lesson",
+        status: "in-progress",
+        completed: false,
+        duration: "7 min",
+        whatYouLearn: [
+          "HAVING vs WHERE",
+          "Using aggregates in HAVING",
+          "Execution order",
+        ],
+        objectives: [
+          "Filter groups with HAVING",
+          "Understand query execution order",
+        ],
+      },
+      {
+        id: 16,
+        title: "ROLLUP & CUBE",
+        description: "Generate sub-totals and cross-tabulations automatically.",
+        type: "lesson",
+        status: "locked",
+        completed: false,
+        duration: "14 min",
+        whatYouLearn: [
+          "GROUP BY ROLLUP",
+          "GROUP BY CUBE",
+          "Reading summary rows",
+        ],
+        objectives: [
+          "Generate hierarchical totals",
+          "Distinguish summary rows",
+        ],
+        problem: {
+          id: 303,
+          title: "Regional Totals Report",
+          difficulty: "Hard",
+          completed: false,
+        },
+      },
+      {
+        id: 17,
+        title: "Aggregation Challenge",
+        description:
+          "Solve a multi-step business analytics query combining all aggregation concepts.",
+        type: "challenge",
+        status: "locked",
+        completed: false,
+        whatYouLearn: [
+          "Chaining GROUP BY with HAVING",
+          "Nested aggregation strategies",
+          "Interpreting business requirements",
+        ],
+        objectives: [
+          "Translate a business question into SQL",
+          "Combine GROUP BY, HAVING, and ORDER BY",
+        ],
+        problem: {
+          id: 304,
+          title: "Monthly Revenue Trend",
+          difficulty: "Hard",
+          completed: false,
+        },
+      },
+    ],
+  },
+  {
+    id: 4,
+    title: "Window Functions",
+    description:
+      "Perform calculations across related rows without collapsing them. Master RANK, DENSE_RANK, LAG, LEAD, and PARTITION BY.",
+    icon: Zap,
+    tag: "Advanced",
+    totalLessons: 6,
+    lessons: [
+      {
+        id: 18,
+        title: "OVER Clause Basics",
+        description:
+          "Understand how window functions differ from regular aggregates and when to choose them.",
+        type: "lesson",
+        status: "locked",
+        completed: false,
+        duration: "10 min",
+        whatYouLearn: [
+          "Window vs aggregate functions",
+          "OVER() clause syntax",
+          "Default window frame",
+        ],
+        objectives: [
+          "Explain what a window function does",
+          "Write a basic OVER() query",
+        ],
+      },
+      {
+        id: 19,
+        title: "PARTITION BY",
+        description:
+          "Reset window calculations per group without collapsing rows.",
+        type: "lesson",
+        status: "locked",
+        completed: false,
+        duration: "9 min",
+        whatYouLearn: [
+          "PARTITION BY divides rows into groups",
+          "Combining with ORDER BY inside OVER",
+          "Running totals per partition",
+        ],
+        objectives: [
+          "Partition a window function",
+          "Compute per-group running sums",
+        ],
+        problem: {
+          id: 401,
+          title: "Rank Salaries by Department",
+          difficulty: "Medium",
+          completed: false,
+        },
+      },
+      {
+        id: 20,
+        title: "RANK vs DENSE_RANK",
+        description:
+          "Understand ranking gaps with RANK and gapless ranking with DENSE_RANK.",
+        type: "lesson",
+        status: "locked",
+        completed: false,
+        duration: "8 min",
+        whatYouLearn: [
+          "RANK skips numbers on ties",
+          "DENSE_RANK never skips",
+          "Choosing the right ranking function",
+        ],
+        objectives: [
+          "Use RANK and DENSE_RANK correctly",
+          "Handle ties in rankings",
+        ],
+        problem: {
+          id: 402,
+          title: "Top 3 Earners per Dept",
+          difficulty: "Hard",
+          completed: false,
+        },
+      },
+      {
+        id: 21,
+        title: "ROW_NUMBER",
+        description:
+          "Assign unique sequential integers to rows, even when they share identical values.",
+        type: "lesson",
+        status: "locked",
+        completed: false,
+        duration: "7 min",
+        whatYouLearn: [
+          "ROW_NUMBER assigns unique integers",
+          "Determinism and tie-breaking",
+          "Deduplication patterns",
+        ],
+        objectives: [
+          "Use ROW_NUMBER for deduplication",
+          "Control tie-breaking with ORDER BY",
+        ],
+      },
+      {
+        id: 22,
+        title: "LAG & LEAD",
+        description:
+          "Access previous and next row values within the same window without a self-join.",
+        type: "lesson",
+        status: "locked",
+        completed: false,
+        duration: "12 min",
+        whatYouLearn: [
+          "LAG to access the previous row",
+          "LEAD to access the next row",
+          "Offset and default values",
+        ],
+        objectives: [
+          "Calculate period-over-period change",
+          "Replace self-joins with LAG/LEAD",
+        ],
+        problem: {
+          id: 403,
+          title: "Month-over-Month Growth",
+          difficulty: "Hard",
+          completed: false,
+        },
+      },
+      {
+        id: 23,
+        title: "Window Functions Challenge",
+        description:
+          "Combine multiple window functions in a single query for an advanced analytics report.",
+        type: "challenge",
+        status: "locked",
+        completed: false,
+        whatYouLearn: [
+          "Nesting CTEs with window functions",
+          "Combining RANK, LAG, and SUM OVER",
+          "Business reporting patterns",
+        ],
+        objectives: [
+          "Write a multi-window-function query",
+          "Solve a real analytics problem",
+        ],
+        problem: {
+          id: 404,
+          title: "Running Total & Percentile",
+          difficulty: "Hard",
+          completed: false,
+        },
+      },
+    ],
+  },
+];
+
 // ═══════════════════════════════════════════════════════════════════════════════
-//  DIFFICULTY BADGE + HELPERS
+//  HELPERS
 // ═══════════════════════════════════════════════════════════════════════════════
+
+function computeCompletion(track: Track) {
+  let total = 0;
+  let done = 0;
+  for (const l of track.lessons) {
+    total++;
+    if (l.completed) done++;
+    if (l.problem) {
+      total++;
+      if (l.problem.completed) done++;
+    }
+  }
+  return total === 0 ? 0 : Math.round((done / total) * 100);
+}
 
 function DifficultyBadge({
   difficulty,
 }: {
   difficulty: "Easy" | "Medium" | "Hard";
 }) {
-  const v =
+  const variant =
     difficulty === "Easy"
       ? "outline"
       : difficulty === "Medium"
         ? "secondary"
         : "default";
   return (
-    <Badge variant={v} className="text-xs font-normal">
+    <Badge variant={variant} className="text-xs font-normal px-1.5 py-0">
       {difficulty}
     </Badge>
   );
 }
 
-function StatusIcon({ status }: { status: RunStatus }) {
-  if (status === "accepted") return <CheckCircle2 className="w-4 h-4" />;
-  if (status === "wrong")
-    return <XCircle className="w-4 h-4 text-muted-foreground" />;
-  if (status === "error")
-    return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
-  if (status === "tle")
-    return <Clock className="w-4 h-4 text-muted-foreground" />;
-  return null;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-//  CUSTOM TABS — underline style, no shadcn TabsList/TabsTrigger
-// ═══════════════════════════════════════════════════════════════════════════════
-
-interface TabsState {
-  active: string;
-  setActive: (v: string) => void;
-}
-const TabsCtx = React.createContext<TabsState>({
-  active: "",
-  setActive: () => {},
-});
-
-import React from "react";
-
-function Tabs({
-  defaultValue,
-  children,
-  className,
-}: {
-  defaultValue: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  const [active, setActive] = useState(defaultValue);
+function TagBadge({ tag }: { tag: Track["tag"] }) {
+  const variant =
+    tag === "Beginner"
+      ? "outline"
+      : tag === "Intermediate"
+        ? "secondary"
+        : "default";
   return (
-    <TabsCtx.Provider value={{ active, setActive }}>
-      <div className={cn("flex flex-col", className)}>{children}</div>
-    </TabsCtx.Provider>
+    <Badge variant={variant} className="text-sm font-normal">
+      {tag}
+    </Badge>
   );
 }
 
-function TabsList({
-  children,
-  className,
+// ═══════════════════════════════════════════════════════════════════════════════
+//  LESSON DIALOG
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function LessonDialog({
+  lesson,
+  open,
+  onClose,
 }: {
-  children: ReactNode;
-  className?: string;
+  lesson: Lesson | null;
+  open: boolean;
+  onClose: () => void;
 }) {
+  if (!lesson) return null;
+  const isLocked = lesson.status === "locked";
+  const progressValue = lesson.completed
+    ? 100
+    : lesson.status === "in-progress"
+      ? 45
+      : 0;
+
   return (
-    <div
-      className={cn(
-        "flex items-end border-b border-border shrink-0 px-3 gap-0",
-        className,
-      )}
-    >
-      {children}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[540px] font-[Inter,sans-serif]">
+        <DialogHeader>
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            {lesson.type === "challenge" ? (
+              <Badge variant="outline" className="text-xs font-mono gap-1 px-2">
+                <Puzzle className="w-3 h-3" />
+                Challenge
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs font-mono gap-1 px-2">
+                <BookOpen className="w-3 h-3" />
+                Lesson
+              </Badge>
+            )}
+            {lesson.duration && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="w-3.5 h-3.5" />
+                {lesson.duration}
+              </span>
+            )}
+            {isLocked && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Lock className="w-3.5 h-3.5" />
+                Locked
+              </span>
+            )}
+          </div>
+          <DialogTitle className="text-lg leading-snug">
+            {lesson.title}
+          </DialogTitle>
+          <DialogDescription className="text-sm leading-relaxed mt-1">
+            {lesson.description}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-1">
+          {/* Progress */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Your progress</span>
+              <span className="font-medium">
+                {lesson.completed
+                  ? "Completed"
+                  : lesson.status === "in-progress"
+                    ? "In Progress"
+                    : "Not started"}
+              </span>
+            </div>
+            <Progress value={progressValue} className="h-2" />
+          </div>
+
+          <Separator />
+
+          {/* What you'll learn */}
+          <div className="space-y-2.5">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              What you'll learn
+            </p>
+            <ul className="space-y-2">
+              {lesson.whatYouLearn.map((item) => (
+                <li
+                  key={item}
+                  className="flex items-start gap-2.5 text-sm text-muted-foreground"
+                >
+                  <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-foreground/60" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <Separator />
+
+          {/* Objectives */}
+          <div className="space-y-2.5">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Objectives
+            </p>
+            <ul className="space-y-2">
+              {lesson.objectives.map((obj) => (
+                <li
+                  key={obj}
+                  className="flex items-start gap-2.5 text-sm text-muted-foreground"
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-foreground/50 mt-2 shrink-0" />
+                  {obj}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Attached problem */}
+          {lesson.problem && (
+            <>
+              <Separator />
+              <div className="space-y-2.5">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Practice Problem
+                </p>
+                <div
+                  className={cn(
+                    "flex items-center justify-between rounded-md border border-border px-4 py-3",
+                    lesson.problem.completed ? "bg-muted/40" : "bg-background",
+                  )}
+                >
+                  <div className="flex items-center gap-2.5">
+                    {lesson.problem.completed ? (
+                      <CheckCircle2 className="w-4 h-4 text-foreground shrink-0" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                    )}
+                    <span className="text-sm font-mono">
+                      {lesson.problem.title}
+                    </span>
+                  </div>
+                  <DifficultyBadge difficulty={lesson.problem.difficulty} />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-sm h-9"
+            onClick={onClose}
+          >
+            Close
+          </Button>
+          {!isLocked && (
+            <InteractiveHoverButton onClick={onClose}>
+              <PlayCircle className="w-4 h-4" />
+              {lesson.completed
+                ? "Review lesson"
+                : lesson.status === "in-progress"
+                  ? "Continue lesson"
+                  : "Start lesson"}
+            </InteractiveHoverButton>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  LESSON ROW
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function StatusIcon({
+  status,
+  completed,
+}: {
+  status: ItemStatus;
+  completed: boolean;
+}) {
+  if (completed)
+    return (
+      <CheckCircle2 className="w-[18px] h-[18px] shrink-0 text-foreground" />
+    );
+  if (status === "in-progress")
+    return (
+      <div className="relative w-[18px] h-[18px] shrink-0">
+        <div className="w-full h-full rounded-full border-2 border-foreground" />
+        <div className="absolute inset-[3px] rounded-full bg-foreground/30 animate-pulse" />
+      </div>
+    );
+  return (
+    <Circle className="w-[18px] h-[18px] shrink-0 text-muted-foreground/30" />
+  );
+}
+
+function LessonRow({
+  lesson,
+  index,
+  onOpen,
+}: {
+  lesson: Lesson;
+  index: number;
+  onOpen: (l: Lesson) => void;
+}) {
+  const isLocked = lesson.status === "locked";
+
+  return (
+    <BlurFade delay={0.04 * index} inView>
+      <button
+        onClick={() => onOpen(lesson)}
+        className={cn(
+          "group w-full flex items-start gap-4 rounded-lg px-4 py-3.5 text-left transition-colors",
+          isLocked
+            ? "opacity-45 cursor-not-allowed"
+            : "hover:bg-muted/50 cursor-pointer",
+        )}
+      >
+        <div className="mt-0.5">
+          <StatusIcon status={lesson.status} completed={lesson.completed} />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={cn(
+                "text-sm font-medium",
+                isLocked && "text-muted-foreground",
+              )}
+            >
+              {lesson.title}
+            </span>
+            {lesson.type === "challenge" && (
+              <Badge
+                variant="outline"
+                className="text-xs font-mono gap-1 px-1.5 py-0"
+              >
+                <Puzzle className="w-3 h-3" />
+                Challenge
+              </Badge>
+            )}
+            {isLocked && (
+              <Lock className="w-3.5 h-3.5 text-muted-foreground/40" />
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-1">
+            {lesson.description}
+          </p>
+
+          {lesson.problem && (
+            <div
+              className={cn(
+                "mt-2 inline-flex items-center gap-2 rounded border border-border/60 px-2.5 py-1.5",
+                lesson.problem.completed ? "bg-muted/40" : "bg-background",
+              )}
+            >
+              {lesson.problem.completed ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-foreground shrink-0" />
+              ) : (
+                <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              )}
+              <span className="text-xs font-mono">{lesson.problem.title}</span>
+              <DifficultyBadge difficulty={lesson.problem.difficulty} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 mt-0.5">
+          {lesson.duration && (
+            <span className="text-xs text-muted-foreground font-mono">
+              {lesson.duration}
+            </span>
+          )}
+          <ChevronRight
+            className={cn(
+              "w-4 h-4 text-muted-foreground transition-all duration-200",
+              isLocked
+                ? "opacity-0"
+                : "opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5",
+            )}
+          />
+        </div>
+      </button>
+    </BlurFade>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  TRACK CARD
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function TrackCard({
+  track,
+  index,
+  onLessonOpen,
+}: {
+  track: Track;
+  index: number;
+  onLessonOpen: (l: Lesson) => void;
+}) {
+  const [open, setOpen] = useState(index === 0);
+  const completion = computeCompletion(track);
+  const completedLessons = track.lessons.filter((l) => l.completed).length;
+  const isStarted = completion > 0;
+  const isCompleted = completion === 100;
+  const Icon = track.icon;
+
+  return (
+    <BlurFade delay={0.08 + index * 0.09} inView>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <Card className="relative overflow-hidden transition-shadow hover:shadow-md">
+          {/* BorderBeam on EVERY card (monotone) */}
+          <BorderBeam
+            size={350}
+            duration={8 + index * 2}
+            delay={index * 1.2}
+            colorFrom="hsl(var(--foreground))"
+            colorTo="transparent"
+            borderWidth={1}
+          />
+
+          <CollapsibleTrigger asChild>
+            <button className="w-full text-left focus-visible:outline-none focus-visible:ring-0">
+              <CardHeader className="pb-4">
+                <div className="flex items-start gap-5">
+                  {/* Circular progress */}
+                  <div className="w-16 h-16 shrink-0">
+                    <AnimatedCircularProgressBar
+                      value={completion}
+                      gaugePrimaryColor="hsl(var(--foreground))"
+                      gaugeSecondaryColor="hsl(var(--muted))"
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+                      <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                      {/* Title — explicit foreground so it works in both modes */}
+                      <CardTitle className="text-lg text-foreground">
+                        {track.title}
+                      </CardTitle>
+                      <TagBadge tag={track.tag} />
+                    </div>
+                    <CardDescription className="text-sm leading-relaxed line-clamp-2 mb-3">
+                      {track.description}
+                    </CardDescription>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <NumberTicker
+                          value={completedLessons}
+                          delay={0.3 + index * 0.1}
+                        />
+                        <span>/{track.totalLessons} lessons</span>
+                      </span>
+                      <Separator orientation="vertical" className="h-3.5" />
+                      <span className="flex items-center gap-1 font-mono">
+                        <NumberTicker
+                          value={completion}
+                          delay={0.3 + index * 0.1}
+                        />
+                        <span>% complete</span>
+                      </span>
+                    </div>
+                    <Progress value={completion} className="h-1.5 mt-2.5" />
+                  </div>
+
+                  <ChevronDown
+                    className={cn(
+                      "w-5 h-5 text-muted-foreground shrink-0 mt-1 transition-transform duration-200",
+                      open && "rotate-180",
+                    )}
+                  />
+                </div>
+              </CardHeader>
+            </button>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent>
+            <CardContent className="pt-0 px-0 pb-5">
+              <Separator className="mb-2 mx-5" />
+
+              {/* Completed banner — shown prominently when track is 100% */}
+              {isCompleted && (
+                <div className="px-5 pb-4">
+                  <CompletedBanner />
+                </div>
+              )}
+
+              <div className="space-y-0 px-2">
+                {track.lessons.map((lesson, i) => (
+                  <LessonRow
+                    key={lesson.id}
+                    lesson={lesson}
+                    index={i}
+                    onOpen={onLessonOpen}
+                  />
+                ))}
+              </div>
+
+              {/* CTA — only when not completed */}
+              {!isCompleted && (
+                <div className="px-5 pt-4">
+                  <InteractiveHoverButton>
+                    <PlayCircle className="w-4 h-4" />
+                    {isStarted ? "Continue Track" : "Start Track"}
+                  </InteractiveHoverButton>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+    </BlurFade>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SUMMARY STRIP
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function SummaryStrip() {
+  const totalLessons = TRACKS.reduce((s, t) => s + t.totalLessons, 0);
+  const doneLessons = TRACKS.reduce(
+    (s, t) => s + t.lessons.filter((l) => l.completed).length,
+    0,
+  );
+  const totalProblems = TRACKS.reduce(
+    (s, t) => s + t.lessons.filter((l) => l.problem).length,
+    0,
+  );
+  const doneProblems = TRACKS.reduce(
+    (s, t) => s + t.lessons.filter((l) => l.problem?.completed).length,
+    0,
+  );
+  const tracksStarted = TRACKS.filter((t) => computeCompletion(t) > 0).length;
+  const overallPct = Math.round(
+    TRACKS.reduce((s, t) => s + computeCompletion(t), 0) / TRACKS.length,
+  );
+
+  const stats = [
+    { label: "Overall Progress", value: overallPct, suffix: "%", icon: Star },
+    {
+      label: "Lessons Done",
+      value: doneLessons,
+      suffix: `/${totalLessons}`,
+      icon: BookOpen,
+    },
+    {
+      label: "Problems Solved",
+      value: doneProblems,
+      suffix: `/${totalProblems}`,
+      icon: Puzzle,
+    },
+    {
+      label: "Tracks Active",
+      value: tracksStarted,
+      suffix: `/${TRACKS.length}`,
+      icon: Flame,
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      {stats.map(({ label, value, suffix, icon: Icon }, i) => (
+        <BlurFade key={label} delay={0.06 * i} inView>
+          <Card>
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                  <p className="text-3xl font-semibold tracking-tight mt-0.5">
+                    <NumberTicker value={value} delay={0.15 + i * 0.08} />
+                    <span className="text-base font-normal text-muted-foreground ml-1">
+                      {suffix}
+                    </span>
+                  </p>
+                </div>
+                <Icon className="w-4 h-4 text-muted-foreground mt-1" />
+              </div>
+            </CardContent>
+          </Card>
+        </BlurFade>
+      ))}
     </div>
   );
 }
 
-function TabsTrigger({
-  value,
-  children,
-  className,
-}: {
-  value: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  const { active, setActive } = React.useContext(TabsCtx);
-  const isActive = active === value;
-  return (
-    <button
-      onClick={() => setActive(value)}
-      className={cn(
-        "relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors select-none whitespace-nowrap",
-        "border-b-2 -mb-px",
-        isActive
-          ? "border-foreground text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function TabsContent({
-  value,
-  children,
-  className,
-}: {
-  value: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  const { active } = React.useContext(TabsCtx);
-  if (active !== value) return null;
-  return (
-    <div className={cn("flex-1 overflow-hidden", className)}>{children}</div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
-//  MAIN PAGE
+//  PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export default function LessonEditorPage() {
-  const containerRef = useRef<HTMLDivElement>(null);
+export default function TracksPage() {
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const [leftPct, setLeftPct] = useState(38);
-  const [editorPct, setEditorPct] = useState(62);
-  const [notesPct, setNotesPct] = useState(32);
-
-  const [outputOpen, setOutputOpen] = useState(true);
-  const [notesOpen, setNotesOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<
-    "lesson" | "editor" | "output" | "notes"
-  >("lesson");
-
-  const [sql, setSql] = useState(DEFAULT_SQL);
-  const [dialect, setDialect] = useState<Dialect>("mysql");
-  const [result, setResult] = useState<RunResult>({ status: "idle" });
-  const [showWrong, setShowWrong] = useState(false);
-
-  const [xp, setXp] = useState(BASE_XP);
-  const [xpDelta, setXpDelta] = useState<number | null>(null);
-  const [xpReady, setXpReady] = useState(false);
-  const deltaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    try {
-      const v = parseInt(localStorage.getItem(XP_KEY) ?? "");
-      if (!isNaN(v)) setXp(v);
-    } catch {}
-    setXpReady(true);
-  }, []);
-
-  const changeXP = useCallback((delta: number) => {
-    setXp((prev) => {
-      const next = Math.min(MAX_XP, Math.max(0, prev + delta));
-      try {
-        localStorage.setItem(XP_KEY, String(next));
-      } catch {}
-      return next;
-    });
-    setXpDelta(delta);
-    if (deltaTimer.current) clearTimeout(deltaTimer.current);
-    deltaTimer.current = setTimeout(() => setXpDelta(null), 2500);
-  }, []);
-
-  const [hintsShown, setHintsShown] = useState<number[]>([]);
-  const [solutionShown, setSolutionShown] = useState(false);
-
-  const revealHint = (i: number) => {
-    if (hintsShown.includes(i)) return;
-    setHintsShown((h) => [...h, i]);
-    changeXP(-15);
-  };
-  const revealSolution = () => {
-    if (solutionShown) return;
-    setSolutionShown(true);
-    changeXP(-80);
-  };
-
-  const timer = useTimer();
-
-  const handleRun = useCallback(async () => {
-    setResult({ status: "running" });
-    setOutputOpen(true);
-    const r = await simulateRun(sql);
-    setResult(r);
-  }, [sql]);
-
-  const handleSubmit = useCallback(async () => {
-    setResult({ status: "running" });
-    setOutputOpen(true);
-    const r = await simulateRun(sql);
-    setResult(r);
-    if (r.status === "accepted") {
-      fireSideCannons();
-      changeXP(+100);
-    } else if (r.status === "wrong") {
-      setShowWrong(true);
-    }
-  }, [sql, changeXP]);
-
-  const handleHorizDrag = useCallback((delta: number) => {
-    const w = containerRef.current?.getBoundingClientRect().width ?? 1;
-    setLeftPct((p) => Math.min(58, Math.max(20, p + (delta / w) * 100)));
-  }, []);
-
-  const handleVertDrag = useCallback((delta: number) => {
-    const h = containerRef.current?.getBoundingClientRect().height ?? 1;
-    setEditorPct((p) => Math.min(90, Math.max(20, p + (delta / h) * 100)));
-  }, []);
-
-  const handleNotesDrag = useCallback((delta: number) => {
-    const w = containerRef.current?.getBoundingClientRect().width ?? 1;
-    setNotesPct((p) => Math.min(55, Math.max(18, p - (delta / w) * 100)));
-  }, []);
-
-  function Section({
-    children,
-    className,
-  }: {
-    children: ReactNode;
-    className?: string;
-  }) {
-    return (
-      <div
-        className={cn(
-          "rounded-xl border border-border bg-card text-card-foreground overflow-hidden flex flex-col",
-          className,
-        )}
-      >
-        {children}
-      </div>
-    );
+  function openLesson(lesson: Lesson) {
+    setSelectedLesson(lesson);
+    setDialogOpen(true);
   }
-
-  // ── LESSON PANEL ──────────────────────────────────────────────────────────
-
-  function LessonPanel() {
-    return (
-      <Section className="h-full">
-        <Tabs defaultValue="description" className="flex flex-col h-full">
-          <TabsList>
-            <TabsTrigger value="description">Description</TabsTrigger>
-            <TabsTrigger value="schema">Schema</TabsTrigger>
-            <TabsTrigger value="hints">Hints</TabsTrigger>
-            <TabsTrigger value="solution">Solution</TabsTrigger>
-            <TabsTrigger value="submissions">Submissions</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="description" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-5 space-y-5">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <h1 className="text-base font-semibold">
-                      {PROBLEM.id}. {PROBLEM.title}
-                    </h1>
-                    <DifficultyBadge difficulty={PROBLEM.difficulty} />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Acceptance: {PROBLEM.acceptance}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {PROBLEM.tags.map((t) => (
-                      <Badge
-                        key={t}
-                        variant="outline"
-                        className="text-[10px] font-mono"
-                      >
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <Separator />
-                <div className="text-sm leading-relaxed space-y-2">
-                  {PROBLEM.description.split("\n\n").map((para, i) => (
-                    <p
-                      key={i}
-                      dangerouslySetInnerHTML={{
-                        __html: para
-                          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                          .replace(
-                            /`(.*?)`/g,
-                            '<code class="bg-muted px-1 py-0.5 rounded text-xs font-mono">$1</code>',
-                          ),
-                      }}
-                    />
-                  ))}
-                </div>
-                <Separator />
-                <div className="space-y-1 pb-4">
-                  <p className="text-sm font-semibold mb-3">Similar Problems</p>
-                  {PROBLEM.similar.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center justify-between py-2 px-2 -mx-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
-                    >
-                      <span className="text-sm">
-                        {p.id}. {p.title}
-                      </span>
-                      <DifficultyBadge difficulty={p.difficulty} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="schema" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-5 space-y-4">
-                <p className="text-sm font-semibold">Table Schema</p>
-                {PROBLEM.schema.map((tbl) => (
-                  <div
-                    key={tbl.table}
-                    className="rounded-lg border border-border overflow-hidden"
-                  >
-                    <div className="px-4 py-2.5 bg-muted/40 border-b border-border">
-                      <p className="text-xs font-mono font-semibold">
-                        {tbl.table}
-                      </p>
-                    </div>
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent border-border">
-                          <TableHead className="text-xs h-8 pl-4">
-                            Column
-                          </TableHead>
-                          <TableHead className="text-xs h-8">Type</TableHead>
-                          <TableHead className="text-xs h-8">Note</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {tbl.columns.map((col) => (
-                          <TableRow key={col.name} className="border-border">
-                            <TableCell className="text-xs font-mono pl-4 py-2">
-                              {col.name}
-                            </TableCell>
-                            <TableCell className="text-xs font-mono text-muted-foreground py-2">
-                              {col.type}
-                            </TableCell>
-                            <TableCell className="py-2">
-                              {col.note && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] font-mono py-0"
-                                >
-                                  {col.note}
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="hints" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">Hints</p>
-                  <span className="text-xs text-muted-foreground">
-                    −15 XP each
-                  </span>
-                </div>
-                {PROBLEM.hints.map((h, i) => (
-                  <div
-                    key={i}
-                    className="rounded-lg border border-border overflow-hidden"
-                  >
-                    <button
-                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/40 transition-colors"
-                      onClick={() => revealHint(i)}
-                    >
-                      <span className="text-sm font-medium flex items-center gap-2">
-                        <Lightbulb className="w-4 h-4 text-muted-foreground" />
-                        Hint {i + 1}
-                      </span>
-                      {hintsShown.includes(i) ? (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <span className="text-xs text-muted-foreground border border-border rounded px-2 py-0.5">
-                          Reveal −15 XP
-                        </span>
-                      )}
-                    </button>
-                    {hintsShown.includes(i) && (
-                      <div className="px-4 pb-4 pt-3 border-t border-border bg-muted/20">
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {h}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="solution" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">Solution</p>
-                  <span className="text-xs text-muted-foreground">
-                    −80 XP to unlock
-                  </span>
-                </div>
-                {!solutionShown ? (
-                  <div className="rounded-lg border border-border p-8 flex flex-col items-center gap-4 text-center">
-                    <Eye className="w-10 h-10 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium mb-1">View Solution</p>
-                      <p className="text-sm text-muted-foreground">
-                        This will cost <strong>80 XP</strong>. Try solving it
-                        yourself first!
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 text-sm gap-2"
-                      onClick={revealSolution}
-                    >
-                      <Eye className="w-4 h-4" />
-                      Unlock Solution
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex items-center justify-between">
-                      <p className="text-xs font-mono font-semibold">
-                        solution.sql
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => setSql(PROBLEM.solution)}
-                      >
-                        Use in editor
-                      </Button>
-                    </div>
-                    <pre className="p-4 text-xs font-mono leading-6 overflow-x-auto whitespace-pre">
-                      {PROBLEM.solution}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="submissions" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-5 space-y-3">
-                <p className="text-sm font-semibold">Recent Submissions</p>
-                {[
-                  {
-                    status: "accepted" as RunStatus,
-                    time: "2h ago",
-                    runtime: "118ms",
-                    d: "MySQL",
-                  },
-                  {
-                    status: "wrong" as RunStatus,
-                    time: "3h ago",
-                    runtime: "201ms",
-                    d: "MySQL",
-                  },
-                  {
-                    status: "error" as RunStatus,
-                    time: "1d ago",
-                    runtime: "—",
-                    d: "PostgreSQL",
-                  },
-                ].map((s, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/40 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <StatusIcon status={s.status} />
-                      <div>
-                        <p className="text-sm font-medium">
-                          {s.status === "accepted"
-                            ? "Accepted"
-                            : s.status === "wrong"
-                              ? "Wrong Answer"
-                              : "Runtime Error"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {s.time} · {s.d}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-mono text-muted-foreground">
-                      {s.runtime}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
-      </Section>
-    );
-  }
-
-  // ── EDITOR PANEL ──────────────────────────────────────────────────────────
-
-  function EditorPanel() {
-    return (
-      <Section className="h-full">
-        <div className="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-muted-foreground">
-              solution.sql
-            </span>
-            <Separator orientation="vertical" className="h-4" />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5 px-2"
-                >
-                  <Database className="w-3 h-3" />
-                  {DIALECTS.find((d) => d.value === dialect)?.label}
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-36">
-                {DIALECTS.map((d) => (
-                  <DropdownMenuItem
-                    key={d.value}
-                    className="text-sm"
-                    onClick={() => setDialect(d.value)}
-                  >
-                    {d.label}
-                    {dialect === d.value && (
-                      <CheckCircle2 className="w-3 h-3 ml-auto" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => setSql(DEFAULT_SQL)}
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Reset code
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <SQLEditor value={sql} onChange={setSql} dialect={dialect} />
-        </div>
-      </Section>
-    );
-  }
-
-  // ── OUTPUT PANEL ──────────────────────────────────────────────────────────
-
-  function OutputPanel() {
-    return (
-      <Section className="h-full">
-        <Tabs defaultValue="expected" className="flex flex-col h-full">
-          <div className="flex items-center border-b border-border shrink-0">
-            <TabsList className="border-none bg-transparent px-1">
-              <TabsTrigger value="expected">Expected Output</TabsTrigger>
-              {result.status !== "idle" && (
-                <TabsTrigger value="result" className="gap-1.5">
-                  <StatusIcon status={result.status} />
-                  {result.status === "running"
-                    ? "Running…"
-                    : result.status === "accepted"
-                      ? "Accepted"
-                      : result.status === "wrong"
-                        ? "Wrong Answer"
-                        : result.status === "error"
-                          ? "Error"
-                          : "TLE"}
-                </TabsTrigger>
-              )}
-            </TabsList>
-            <div className="ml-auto flex items-center gap-1 pr-2">
-              {result.runtime && (
-                <span className="text-xs font-mono text-muted-foreground">
-                  {result.runtime}
-                </span>
-              )}
-              {result.passedCases !== undefined && (
-                <span className="text-xs text-muted-foreground">
-                  {result.passedCases}/{result.totalCases}
-                </span>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setOutputOpen(false)}
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </div>
-
-          <TabsContent value="expected" className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-3">
-                <div className="rounded-lg border border-border overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent border-border bg-muted/30">
-                        {Object.keys(PROBLEM.exampleOutput[0]).map((k) => (
-                          <TableHead
-                            key={k}
-                            className="text-xs h-8 font-mono px-4"
-                          >
-                            {k}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {PROBLEM.exampleOutput.map((row, i) => (
-                        <TableRow key={i} className="border-border">
-                          {Object.values(row).map((v, j) => (
-                            <TableCell
-                              key={j}
-                              className="text-sm font-mono px-4 py-2"
-                            >
-                              {String(v)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          {result.status !== "idle" && (
-            <TabsContent value="result" className="flex-1 overflow-hidden">
-              <ScrollArea className="h-full">
-                <div className="p-3 space-y-3">
-                  {result.status === "running" && (
-                    <div className="space-y-2">
-                      {[70, 50, 85, 60].map((w, i) => (
-                        <div
-                          key={i}
-                          className="h-3 rounded-md bg-muted animate-pulse"
-                          style={{ width: `${w}%` }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {result.status === "error" && (
-                    <div className="rounded-lg border border-border bg-muted/30 p-4">
-                      <p className="text-sm font-mono text-muted-foreground">
-                        {result.error}
-                      </p>
-                    </div>
-                  )}
-                  {(result.status === "accepted" ||
-                    result.status === "wrong") &&
-                    result.rows &&
-                    result.rows.length > 0 && (
-                      <div className="rounded-lg border border-border overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="hover:bg-transparent border-border bg-muted/30">
-                              {Object.keys(result.rows[0]).map((k) => (
-                                <TableHead
-                                  key={k}
-                                  className="text-xs h-8 font-mono px-4"
-                                >
-                                  {k}
-                                </TableHead>
-                              ))}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {result.rows.map((row, i) => (
-                              <TableRow key={i} className="border-border">
-                                {Object.values(row).map((v, j) => (
-                                  <TableCell
-                                    key={j}
-                                    className="text-sm font-mono px-4 py-2"
-                                  >
-                                    {String(v)}
-                                  </TableCell>
-                                ))}
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-          )}
-        </Tabs>
-      </Section>
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  //  RENDER
-  // ══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
-      {showWrong && <WrongOverlay onDone={() => setShowWrong(false)} />}
+    <>
+      <ScrollProgress />
 
-      {/* ── Top Nav ─────────────────────────────────────────────────────────
-          Layout: [logo | prev | next | title | badge]  [timer cluster]  [xp | notes | output | run | submit]
-          The timer cluster sits in the CENTER of the navbar as plain text + icon controls.
-          It is NOT inside a button.
-      ── */}
-      <header className="h-12 border-b border-border flex items-center px-3 shrink-0 bg-background z-20 gap-2">
-        {/* LEFT: logo + navigation */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="flex items-center gap-1.5 pr-3 border-r border-border">
-            <Code2 className="w-4 h-4" />
-            <span className="text-sm font-semibold tracking-tight">ssql</span>
-          </div>
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Previous
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Next
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <span className="text-sm text-muted-foreground hidden lg:block truncate max-w-[180px]">
-            {PROBLEM.id}. {PROBLEM.title}
-          </span>
-          <DifficultyBadge difficulty={PROBLEM.difficulty} />
+      <div className="relative min-h-screen bg-background text-foreground font-[Inter,sans-serif] overflow-x-hidden">
+        {/* ── Dot pattern — page background only, NOT repeated in footer ── */}
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <DotPattern
+            width={22}
+            height={22}
+            cx={1}
+            cy={1}
+            cr={1}
+            className="fill-foreground/[0.055] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_40%,white_30%,transparent_100%)]"
+          />
         </div>
 
-        {/* CENTER: timer display — plain text, never inside a button */}
-        <div className="flex-1 flex items-center justify-center gap-2">
-          {/* Play / Pause icon — tiny ghost button */}
-          {timer.mounted && (
-            <TooltipProvider delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0"
-                    onClick={timer.state.running ? timer.pause : timer.start}
-                  >
-                    {timer.state.running ? (
-                      <Pause className="w-3 h-3 text-muted-foreground" />
-                    ) : (
-                      <Play className="w-3 h-3 text-muted-foreground" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  {timer.state.running ? "Pause timer" : "Start timer"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {/* Time — plain <span>, never a button */}
-          <span
-            className={cn(
-              "font-mono text-sm tabular-nums select-none leading-none",
-              timer.mounted
-                ? timer.active
-                  ? "text-foreground"
-                  : "text-muted-foreground"
-                : "text-transparent",
-              timer.urgent && "animate-pulse text-foreground",
-            )}
-          >
-            {timer.mounted ? `${timer.mm}:${timer.ss}` : "00:00"}
-          </span>
-
-          {/* Countdown progress bar — only when countdown active */}
-          {timer.state.mode === "countdown" &&
-            timer.mounted &&
-            timer.active && (
-              <Progress value={timer.pct} className="h-1 w-12 shrink-0" />
-            )}
-
-          {/* Reset — tiny ghost */}
-          {timer.mounted && timer.active && (
-            <TooltipProvider delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 shrink-0"
-                    onClick={timer.reset}
-                  >
-                    <RotateCcw className="w-3 h-3 text-muted-foreground" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Reset timer
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          {/* Settings popover — Timer icon */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 shrink-0"
-                title="Timer settings"
-              >
-                <Timer className="w-3.5 h-3.5 text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-0" align="center">
-              <TimerWidget timer={timer} />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* RIGHT: XP + controls */}
-        <div className="flex items-center gap-2 shrink-0">
-          {xpReady && (
-            <div className="hidden sm:block">
-              <XPBar xp={xp} delta={xpDelta} />
+        <main className="relative z-10 max-w-4xl mx-auto px-4 py-12">
+          {/* ── Page Header ── */}
+          <BlurFade delay={0} inView>
+            <div className="mb-10">
+              <div className="flex items-center gap-2.5 mb-3">
+                <Layers className="w-6 h-6" />
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                  Learning Tracks
+                </h1>
+              </div>
+              <p className="text-base text-muted-foreground max-w-lg leading-relaxed">
+                Structured paths from SQL basics to advanced window functions.
+                Each track contains lessons and practice problems — complete
+                them in order to unlock the next.
+              </p>
             </div>
-          )}
+          </BlurFade>
 
-          <Button
-            variant={notesOpen ? "default" : "outline"}
-            size="sm"
-            className="h-8 text-xs gap-1.5 hidden sm:flex"
-            onClick={() => setNotesOpen((n) => !n)}
-          >
-            <PenLine className="w-3.5 h-3.5" />
-            Notes
-          </Button>
+          {/* ── Stats ── */}
+          <SummaryStrip />
 
-          {!outputOpen && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs gap-1.5 hidden sm:flex"
-              onClick={() => setOutputOpen(true)}
-            >
-              <ChevronUp className="w-3.5 h-3.5" />
-              Output
-            </Button>
-          )}
-
-          <Separator orientation="vertical" className="h-5 hidden sm:block" />
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs gap-1.5 px-3"
-            onClick={handleRun}
-            disabled={result.status === "running"}
-          >
-            <Play className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Run</span>
-          </Button>
-
-          <Button
-            size="sm"
-            className="h-8 text-xs gap-1.5 px-3"
-            onClick={handleSubmit}
-            disabled={result.status === "running"}
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Submit</span>
-          </Button>
-        </div>
-      </header>
-
-      {/* ── Mobile tab bar ── */}
-      <div className="md:hidden flex border-b border-border shrink-0 bg-background">
-        {(["lesson", "editor", "output", "notes"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setMobileTab(t)}
-            className={cn(
-              "flex-1 py-2.5 text-sm font-medium capitalize border-b-2 transition-colors",
-              mobileTab === t
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground",
-            )}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Desktop layout ── */}
-      <div
-        ref={containerRef}
-        className="hidden md:flex flex-1 overflow-hidden p-2 gap-0"
-      >
-        <div
-          className="shrink-0 overflow-hidden"
-          style={{ width: `${leftPct}%` }}
-        >
-          <LessonPanel />
-        </div>
-        <DraggableDivider onDrag={handleHorizDrag} direction="horizontal" />
-        <div className="flex flex-1 overflow-hidden min-w-0 gap-0">
-          <div className="flex flex-col flex-1 overflow-hidden min-w-0 gap-2">
-            <div
-              className="overflow-hidden min-h-0"
-              style={{ flex: outputOpen ? `${editorPct} 0 0` : "1 0 0" }}
-            >
-              <EditorPanel />
-            </div>
-            {outputOpen && (
-              <>
-                <DraggableDivider
-                  onDrag={handleVertDrag}
-                  direction="vertical"
-                />
-                <div
-                  className="overflow-hidden min-h-0"
-                  style={{ flex: `${100 - editorPct} 0 0` }}
-                >
-                  <OutputPanel />
-                </div>
-              </>
-            )}
-          </div>
-          {notesOpen && (
-            <>
-              <DraggableDivider
-                onDrag={handleNotesDrag}
-                direction="horizontal"
+          {/* ── Track Cards ── */}
+          <div className="space-y-5">
+            {TRACKS.map((track, i) => (
+              <TrackCard
+                key={track.id}
+                track={track}
+                index={i}
+                onLessonOpen={openLesson}
               />
-              <div
-                className="shrink-0 overflow-hidden min-w-0"
-                style={{ width: `${notesPct}%` }}
-              >
-                <Section className="h-full">
-                  <div className="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
-                    <span className="text-sm font-medium flex items-center gap-2">
-                      <PenLine className="w-4 h-4" />
-                      Notes
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setNotesOpen(false)}
-                    >
-                      <Minimize2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                  <div className="flex-1 overflow-hidden min-h-0">
-                    <CanvasNotes />
-                  </div>
-                </Section>
-              </div>
-            </>
-          )}
-        </div>
+            ))}
+          </div>
+
+          {/* ── Footer — no extra dot pattern, just the wordmark ── */}
+          <div className="mt-28 mb-4 flex flex-col items-center gap-4 select-none">
+            {/* Gradient wordmark — works in light AND dark */}
+            <span className="pointer-events-none bg-gradient-to-b from-black to-gray-300/80 bg-clip-text text-center text-9xl leading-none font-semibold text-transparent dark:from-white dark:to-slate-900/10">
+              Vorn
+            </span>
+            <p className="pl-2 text-sm text-muted-foreground uppercase tracking-wide">
+              built for SQL mastery
+            </p>
+          </div>
+        </main>
+
+        {/* ── Lesson Dialog ── */}
+        <LessonDialog
+          lesson={selectedLesson}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+        />
       </div>
 
-      {/* ── Mobile content ── */}
-      <div className="md:hidden flex-1 overflow-hidden p-2">
-        {mobileTab === "lesson" && (
-          <div className="h-full">
-            <LessonPanel />
-          </div>
-        )}
-        {mobileTab === "editor" && (
-          <div className="h-full">
-            <EditorPanel />
-          </div>
-        )}
-        {mobileTab === "output" && (
-          <div className="h-full">
-            <OutputPanel />
-          </div>
-        )}
-        {mobileTab === "notes" && (
-          <div className="h-full">
-            <Section className="h-full">
-              <div className="h-10 border-b border-border flex items-center px-3">
-                <span className="text-sm font-medium">Notes</span>
-              </div>
-              <div className="flex-1 overflow-hidden min-h-0">
-                <CanvasNotes />
-              </div>
-            </Section>
-          </div>
-        )}
-      </div>
-
-      {/* ── Status bar ── */}
-      <div className="h-6 border-t border-border flex items-center justify-between px-3 shrink-0 bg-background text-[11px] font-mono text-muted-foreground">
-        <div className="flex items-center gap-3">
-          <span>{DIALECTS.find((d) => d.value === dialect)?.label}</span>
-          <Separator orientation="vertical" className="h-3" />
-          <span>
-            {result.status === "idle"
-              ? "Ready"
-              : result.status === "running"
-                ? "Running…"
-                : result.status === "accepted"
-                  ? "✓ Accepted"
-                  : result.status === "wrong"
-                    ? "✗ Wrong Answer"
-                    : result.status}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span>SQL · UTF-8</span>
-          {xpReady && (
-            <>
-              <Separator orientation="vertical" className="h-3" />
-              <span>
-                XP {xp}/{MAX_XP}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
+      {/* ── Global keyframes ── */}
       <style>{`
-        @keyframes wrongShake {
-          0%,100%{transform:translateX(0) scale(1)}
-          15%{transform:translateX(-10px) scale(1.02)}
-          30%{transform:translateX(10px) scale(1.02)}
-          45%{transform:translateX(-7px)}
-          60%{transform:translateX(7px)}
-          75%{transform:translateX(-4px)}
-          90%{transform:translateX(4px)}
+        @keyframes border-beam-spin {
+          from { --beam-angle: 0; }
+          to   { --beam-angle: 360; }
+        }
+        @keyframes shimmer-sweep {
+          from { background-position: -200% center; }
+          to   { background-position: 200% center; }
         }
       `}</style>
-    </div>
+    </>
   );
 }
