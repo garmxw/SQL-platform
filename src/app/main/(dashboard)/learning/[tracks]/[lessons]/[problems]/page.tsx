@@ -1058,6 +1058,144 @@ function TabsContent({
   );
 }
 
+function Section({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-card text-card-foreground overflow-hidden flex flex-col",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ── STABLE EDITOR PANEL  ─────────────────────────────────────
+// ── STABLE EDITOR PANEL ─────────────────────────────────────────────────────
+interface EditorPanelProps {
+  sql: string;
+  onSqlChange: (value: string) => void;
+  dialect: Dialect;
+  onDialectChange: (d: Dialect) => void;
+  editorSettings: EditorSettings;
+  onEditorSettingsChange: (s: EditorSettings) => void;
+  errorCount: number;
+  warnCount: number;
+  isDark: boolean;
+  defaultSql: string;
+  dialects: typeof DIALECTS;
+  onMarkers: (m: editor.IMarkerData[]) => void; // ← fixed
+}
+
+const EditorPanel = React.memo(function EditorPanel({
+  sql,
+  onSqlChange,
+  dialect,
+  onDialectChange,
+  editorSettings,
+  onEditorSettingsChange,
+  errorCount,
+  warnCount,
+  isDark,
+  defaultSql,
+  dialects,
+  onMarkers,
+}: EditorPanelProps) {
+  return (
+    <Section className="h-full">
+      <div className="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-muted-foreground">
+            solution.sql
+          </span>
+          <Separator orientation="vertical" className="h-4" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1.5 px-2"
+              >
+                <Database className="w-3 h-3" />
+                {dialects.find((d) => d.value === dialect)?.label}
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-36">
+              {dialects.map((d) => (
+                <DropdownMenuItem
+                  key={d.value}
+                  className="text-sm"
+                  onClick={() => onDialectChange(d.value)}
+                >
+                  {d.label}
+                  {dialect === d.value && (
+                    <CheckCircle2 className="w-3 h-3 ml-auto" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {errorCount > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] font-mono text-red-500">
+              <AlertCircle className="w-3 h-3" />
+              {errorCount}
+            </span>
+          )}
+          {warnCount > 0 && (
+            <span className="flex items-center gap-0.5 text-[10px] font-mono text-amber-500">
+              <AlertCircle className="w-3 h-3" />
+              {warnCount}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-0.5">
+          <EditorSettingsSheet
+            settings={editorSettings}
+            onChange={onEditorSettingsChange}
+          />
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => onSqlChange(defaultSql)}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Reset code
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-hidden">
+        <MonacoEditor
+          value={sql}
+          onChange={onSqlChange}
+          dark={isDark}
+          dialect={dialect}
+          onMarkers={onMarkers}
+          settings={editorSettings}
+        />
+      </div>
+    </Section>
+  );
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1173,25 +1311,6 @@ export default function LessonEditorPage() {
   // Lint summary — Monaco severity: Error=8, Warning=4, Info=2
   const errorCount = markers.filter((m) => m.severity === 8).length;
   const warnCount = markers.filter((m) => m.severity === 4).length;
-
-  function Section({
-    children,
-    className,
-  }: {
-    children: ReactNode;
-    className?: string;
-  }) {
-    return (
-      <div
-        className={cn(
-          "rounded-xl border border-border bg-card text-card-foreground overflow-hidden flex flex-col",
-          className,
-        )}
-      >
-        {children}
-      </div>
-    );
-  }
 
   // ── LESSON PANEL ────────────────────────────────────────────────────────────
 
@@ -1468,95 +1587,6 @@ export default function LessonEditorPage() {
             </ScrollArea>
           </TabsContent>
         </Tabs>
-      </Section>
-    );
-  }
-
-  // ── EDITOR PANEL ────────────────────────────────────────────────────────────
-
-  function EditorPanel() {
-    return (
-      <Section className="h-full">
-        <div className="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-muted-foreground">
-              solution.sql
-            </span>
-            <Separator orientation="vertical" className="h-4" />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5 px-2"
-                >
-                  <Database className="w-3 h-3" />
-                  {DIALECTS.find((d) => d.value === dialect)?.label}
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-36">
-                {DIALECTS.map((d) => (
-                  <DropdownMenuItem
-                    key={d.value}
-                    className="text-sm"
-                    onClick={() => setDialect(d.value)}
-                  >
-                    {d.label}
-                    {dialect === d.value && (
-                      <CheckCircle2 className="w-3 h-3 ml-auto" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            {errorCount > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] font-mono text-red-500">
-                <AlertCircle className="w-3 h-3" />
-                {errorCount}
-              </span>
-            )}
-            {warnCount > 0 && (
-              <span className="flex items-center gap-0.5 text-[10px] font-mono text-amber-500">
-                <AlertCircle className="w-3 h-3" />
-                {warnCount}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-0.5">
-            <EditorSettingsSheet
-              settings={editorSettings}
-              onChange={setEditorSettings}
-            />
-            <TooltipProvider delayDuration={300}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setSql(DEFAULT_SQL)}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">
-                  Reset code
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <MonacoEditor
-            value={sql}
-            onChange={setSql}
-            dark={isDark}
-            dialect={dialect}
-            onMarkers={setMarkers}
-            settings={editorSettings}
-          />
-        </div>
       </Section>
     );
   }
@@ -1941,7 +1971,20 @@ export default function LessonEditorPage() {
               className="overflow-hidden min-h-0"
               style={{ flex: outputOpen ? `${editorPct} 0 0` : "1 0 0" }}
             >
-              <EditorPanel />
+              <EditorPanel
+                sql={sql}
+                onSqlChange={setSql}
+                dialect={dialect}
+                onDialectChange={setDialect}
+                editorSettings={editorSettings}
+                onEditorSettingsChange={setEditorSettings}
+                errorCount={errorCount}
+                warnCount={warnCount}
+                isDark={isDark}
+                defaultSql={DEFAULT_SQL}
+                dialects={DIALECTS}
+                onMarkers={setMarkers}
+              />
             </div>
             {outputOpen && (
               <>
@@ -2003,7 +2046,20 @@ export default function LessonEditorPage() {
         )}
         {mobileTab === "editor" && (
           <div className="h-full">
-            <EditorPanel />
+            <EditorPanel
+              sql={sql}
+              onSqlChange={setSql}
+              dialect={dialect}
+              onDialectChange={setDialect}
+              editorSettings={editorSettings}
+              onEditorSettingsChange={setEditorSettings}
+              errorCount={errorCount}
+              warnCount={warnCount}
+              isDark={isDark}
+              defaultSql={DEFAULT_SQL}
+              dialects={DIALECTS}
+              onMarkers={setMarkers}
+            />
           </div>
         )}
         {mobileTab === "output" && (

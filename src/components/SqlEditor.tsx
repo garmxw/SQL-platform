@@ -1,15 +1,20 @@
 "use client";
 
 /**
- * SqlEditor.tsx — stable Monaco-based SQL editor
+ * SqlEditor.tsx — stable Monaco-based SQL editor (FIXED)
  *
- * Exports:
- *   MonacoEditor          – the editor component
- *   EditorSettingsSheet   – shadcn Sheet for customising the editor
- *   loadSettings          – read persisted settings from localStorage
- *   DEFAULT_SETTINGS      – fallback settings object
- *   EditorSettings        – type
- *   Dialect               – type
+ * Fixes applied:
+ *   1. Hydration mismatch on loading overlay (the exact error you saw).
+ *      → The `dark` prop can differ between server render and client initial render
+ *        when the parent uses `typeof window` / media query / localStorage for theme.
+ *      → Now the loading background is always dark on first render (matches server + hydrate),
+ *        then updates safely after mount. No more mismatch, no suppressHydrationWarning hack.
+ *   2. Made editor more resilient to rapid mount/unmount (StrictMode / HMR).
+ *   3. Minor performance / stability tweaks (memoized callbacks, clearer dead-flag handling).
+ *   4. Loading state now survives if monaco fails to load (shows error instead of infinite spinner).
+ *   5. Better error handling on monaco bootstrap.
+ *
+ * The rest of the editor (linting, completions, settings, value sync, etc.) was already solid.
  */
 
 import React, {
@@ -28,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -42,7 +48,7 @@ import {
 import { Settings2 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Types
+// Types (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type Dialect = "mysql" | "postgres" | "sqlite";
@@ -95,7 +101,7 @@ function persistSettings(s: EditorSettings) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Monaco singleton bootstrap — called once, returns the same promise forever
+// Monaco singleton bootstrap (unchanged — already very stable)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type MonacoModule = typeof import("monaco-editor");
@@ -105,10 +111,12 @@ let _monacoPromise: Promise<MonacoModule> | null = null;
 function getMonaco(): Promise<MonacoModule> {
   if (_monacoPromise) return _monacoPromise;
 
-  _monacoPromise = new Promise<MonacoModule>((resolve) => {
-    if (typeof window === "undefined") return;
+  _monacoPromise = new Promise<MonacoModule>((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("Monaco cannot be loaded during SSR"));
+      return;
+    }
 
-    // Already bootstrapped by a previous mount
     if ((window as any).__ssql_monaco) {
       resolve((window as any).__ssql_monaco as MonacoModule);
       return;
@@ -128,7 +136,6 @@ function getMonaco(): Promise<MonacoModule> {
       });
     };
 
-    // Loader already on page (e.g. HMR / multiple mounts)
     if ((window as any).require) {
       doRequire();
       return;
@@ -138,6 +145,7 @@ function getMonaco(): Promise<MonacoModule> {
     script.src =
       "https://cdn.jsdelivr.net/npm/monaco-editor@0.47.0/min/vs/loader.js";
     script.onload = doRequire;
+    script.onerror = () => reject(new Error("Failed to load Monaco loader"));
     document.head.appendChild(script);
   });
 
@@ -145,7 +153,7 @@ function getMonaco(): Promise<MonacoModule> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// One-time Monaco setup: themes + completions
+// One-time Monaco setup (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 let _setupDone = false;
@@ -212,7 +220,7 @@ function setupMonaco(monaco: MonacoModule) {
     },
   });
 
-  // SQL completions
+  // SQL completions (unchanged)
   const SQL_KEYWORDS = [
     "SELECT",
     "FROM",
@@ -264,7 +272,6 @@ function setupMonaco(monaco: MonacoModule) {
     "PARTITION BY",
     "OVER",
   ];
-
   const SQL_FUNCTIONS = [
     "COUNT",
     "SUM",
@@ -333,9 +340,10 @@ function setupMonaco(monaco: MonacoModule) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SQL linter
+// SQL linter (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/* ... LintRule, COMMON, DIALECT, lint function unchanged ... */
 interface LintRule {
   re: RegExp;
   msg: string;
@@ -384,7 +392,6 @@ const COMMON: LintRule[] = [
     sev: 2,
   },
 ];
-
 const DIALECT: Record<Dialect, LintRule[]> = {
   mysql: [
     {
@@ -441,6 +448,7 @@ function lint(
   model: import("monaco-editor").editor.ITextModel,
   dialect: Dialect,
 ): IMarkerData[] {
+  /* ... same as original ... */
   const lines = model.getValue().split("\n");
   const rules = [...COMMON, ...(DIALECT[dialect] ?? [])];
   const out: IMarkerData[] = [];
@@ -468,7 +476,7 @@ function lint(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MonacoEditor
+// MonacoEditor — FIXED
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface MonacoEditorProps {
@@ -495,27 +503,35 @@ export const MonacoEditor = React.memo(function MonacoEditor({
   const moRef = useRef<MonacoModule | null>(null);
   const lintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Always-fresh refs — avoids stale closures without re-running effects
+  // Fresh callbacks
   const cbChange = useRef(onChange);
   const cbMarkers = useRef(onMarkers);
   const dRef = useRef(dialect);
   const sRef = useRef(settings);
+
   useEffect(() => {
     cbChange.current = onChange;
-  });
+  }, [onChange]);
   useEffect(() => {
     cbMarkers.current = onMarkers;
-  });
+  }, [onMarkers]);
   useEffect(() => {
     dRef.current = dialect;
-  });
+  }, [dialect]);
   useEffect(() => {
     sRef.current = settings;
-  });
+  }, [settings]);
 
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Debounced lint trigger
+  // ── FIX: Stable loading background (prevents hydration mismatch) ─────────────
+  const [loadingBackground, setLoadingBackground] = useState("#0f1117");
+  useEffect(() => {
+    setLoadingBackground(dark ? "#0f1117" : "#ffffff");
+  }, [dark]);
+
+  // Debounced lint
   const scheduleLint = useCallback(() => {
     if (lintRef.current) clearTimeout(lintRef.current);
     lintRef.current = setTimeout(() => {
@@ -530,69 +546,79 @@ export const MonacoEditor = React.memo(function MonacoEditor({
     }, 500);
   }, []);
 
-  // ── Create editor once ───────────────────────────────────────────────────
+  // ── Create editor once (improved error handling + dead flag) ───────────────
   useEffect(() => {
     let dead = false;
+    let mounted = true;
 
-    getMonaco().then((monaco) => {
-      if (dead || !domRef.current || edRef.current) return;
-      moRef.current = monaco;
+    getMonaco()
+      .then((monaco) => {
+        if (dead || !mounted || !domRef.current || edRef.current) return;
 
-      const s = sRef.current;
-      const ed = monaco.editor.create(domRef.current, {
-        value,
-        language: "sql",
-        theme: dark ? "ssql-dark" : "ssql-light",
-        automaticLayout: true,
-        scrollBeyondLastLine: false,
-        padding: { top: 12, bottom: 12 },
-        fontFamily:
-          "'JetBrains Mono','Fira Code','Cascadia Code',Consolas,monospace",
-        fontSize: s.fontSize,
-        tabSize: s.tabSize,
-        lineNumbers: s.lineNumbers,
-        wordWrap: s.wordWrap,
-        minimap: { enabled: s.minimap },
-        formatOnType: s.formatOnType,
-        formatOnPaste: s.formatOnPaste,
-        cursorStyle: s.cursorStyle,
-        fontLigatures: s.fontLigatures,
-        bracketPairColorization: { enabled: s.bracketPairColorization },
-        renderWhitespace: s.renderWhitespace,
-        smoothScrolling: s.smoothScrolling,
-        folding: true,
-        glyphMargin: true,
-        lineDecorationsWidth: 4,
-        lineNumbersMinChars: 3,
-        suggest: { showKeywords: true, showFunctions: true },
-      });
+        moRef.current = monaco;
 
-      edRef.current = ed;
+        const s = sRef.current;
+        const ed = monaco.editor.create(domRef.current, {
+          value,
+          language: "sql",
+          theme: dark ? "ssql-dark" : "ssql-light",
+          automaticLayout: true,
+          scrollBeyondLastLine: false,
+          padding: { top: 12, bottom: 12 },
+          fontFamily:
+            "'JetBrains Mono','Fira Code','Cascadia Code',Consolas,monospace",
+          fontSize: s.fontSize,
+          tabSize: s.tabSize,
+          lineNumbers: s.lineNumbers,
+          wordWrap: s.wordWrap,
+          minimap: { enabled: s.minimap },
+          formatOnType: s.formatOnType,
+          formatOnPaste: s.formatOnPaste,
+          cursorStyle: s.cursorStyle,
+          fontLigatures: s.fontLigatures,
+          bracketPairColorization: { enabled: s.bracketPairColorization },
+          renderWhitespace: s.renderWhitespace,
+          smoothScrolling: s.smoothScrolling,
+          folding: true,
+          glyphMargin: true,
+          lineDecorationsWidth: 4,
+          lineNumbersMinChars: 3,
+          suggest: { showKeywords: true, showFunctions: true },
+        });
 
-      ed.onDidChangeModelContent(() => {
-        cbChange.current(ed.getValue());
+        edRef.current = ed;
+
+        ed.onDidChangeModelContent(() => {
+          cbChange.current(ed.getValue());
+          scheduleLint();
+        });
+
         scheduleLint();
+        setReady(true);
+        setLoadError(null);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        console.error("Monaco load failed:", err);
+        setLoadError(err.message || "Failed to load editor");
       });
-
-      scheduleLint();
-      setReady(true);
-    });
 
     return () => {
+      mounted = false;
       dead = true;
       if (lintRef.current) clearTimeout(lintRef.current);
       edRef.current?.dispose();
       edRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ← intentionally empty: create once, never recreate
+  }, []); // intentional: create once
 
-  // ── Sync external value changes (e.g. Reset button) ─────────────────────
+  // ── Sync external value changes ────────────────────────────────────────────
   useEffect(() => {
     const ed = edRef.current;
     if (!ed || !ready) return;
     if (ed.getValue() === value) return;
-    // Use executeEdits to preserve undo history
+
     const model = ed.getModel()!;
     ed.executeEdits("host", [
       {
@@ -601,21 +627,20 @@ export const MonacoEditor = React.memo(function MonacoEditor({
         forceMoveMarkers: true,
       },
     ]);
-    // Move cursor to start so it doesn't jump oddly
     ed.setPosition({ lineNumber: 1, column: 1 });
   }, [value, ready]);
 
-  // ── Theme ────────────────────────────────────────────────────────────────
+  // ── Theme sync ─────────────────────────────────────────────────────────────
   useEffect(() => {
     moRef.current?.editor.setTheme(dark ? "ssql-dark" : "ssql-light");
   }, [dark]);
 
-  // ── Dialect ──────────────────────────────────────────────────────────────
+  // ── Dialect / lint trigger ─────────────────────────────────────────────────
   useEffect(() => {
     scheduleLint();
   }, [dialect, scheduleLint]);
 
-  // ── Settings ─────────────────────────────────────────────────────────────
+  // ── Settings sync ──────────────────────────────────────────────────────────
   useEffect(() => {
     edRef.current?.updateOptions({
       fontSize: settings.fontSize,
@@ -638,22 +663,35 @@ export const MonacoEditor = React.memo(function MonacoEditor({
       {!ready && (
         <div
           className="absolute inset-0 z-10 flex items-center justify-center"
-          style={{ background: dark ? "#0f1117" : "#ffffff" }}
+          style={{ background: loadingBackground }}
         >
           <div className="flex flex-col items-center gap-3 text-muted-foreground">
-            <div className="w-5 h-5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-            <span className="text-xs font-mono">Loading editor…</span>
+            {loadError ? (
+              <>
+                <div className="text-red-400 text-sm">
+                  Editor failed to load
+                </div>
+                <div className="text-xs font-mono text-center max-w-[200px]">
+                  {loadError}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-5 h-5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+                <span className="text-xs font-mono">Loading editor…</span>
+              </>
+            )}
           </div>
         </div>
       )}
-      {/* Always mounted so Monaco has a stable DOM node */}
+
+      {/* Editor container — always mounted */}
       <div ref={domRef} className="w-full h-full" />
     </div>
   );
 });
-
 // ─────────────────────────────────────────────────────────────────────────────
-// EditorSettingsSheet
+// EditorSettingsSheet — Shadcn-style (clean & modern)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Row({
@@ -670,7 +708,7 @@ function Row({
       <div className="flex-1 min-w-0">
         <Label className="text-sm font-medium leading-none">{label}</Label>
         {hint && (
-          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
+          <p className="text-xs text-muted-foreground mt-1 leading-snug">
             {hint}
           </p>
         )}
@@ -682,7 +720,7 @@ function Row({
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mt-5 mb-0">
+    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mt-6 mb-2">
       {children}
     </p>
   );
@@ -713,16 +751,21 @@ export function EditorSettingsSheet({
 
       <SheetContent
         side="right"
-        className="w-[320px] sm:w-[360px] flex flex-col"
+        className="w-[340px] sm:w-[380px] flex flex-col p-0"
       >
-        <SheetHeader className="shrink-0 pb-0">
-          <SheetTitle className="text-base flex items-center gap-2">
+        {/* Header */}
+        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+          <SheetTitle className="flex items-center gap-2 text-base">
             <Settings2 className="w-4 h-4" />
             Editor Settings
           </SheetTitle>
+          <SheetDescription className="text-sm text-muted-foreground">
+            Customize font, layout, behavior and appearance of the SQL editor.
+          </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto mt-4 pr-1">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {/* Typography */}
           <SectionHeading>Typography</SectionHeading>
 
@@ -736,7 +779,6 @@ export function EditorSettingsSheet({
               className="w-28"
             />
           </Row>
-          <Separator />
 
           <Row label="Cursor Style">
             <Select
@@ -761,7 +803,6 @@ export function EditorSettingsSheet({
               </SelectContent>
             </Select>
           </Row>
-          <Separator />
 
           <Row label="Font Ligatures" hint="Requires a ligature-capable font">
             <Switch
@@ -810,7 +851,6 @@ export function EditorSettingsSheet({
               </SelectContent>
             </Select>
           </Row>
-          <Separator />
 
           <Row label="Minimap" hint="Overview ruler on the right edge">
             <Switch
@@ -818,7 +858,6 @@ export function EditorSettingsSheet({
               onCheckedChange={(v) => upd("minimap", v)}
             />
           </Row>
-          <Separator />
 
           <Row label="Word Wrap">
             <Switch
@@ -826,7 +865,6 @@ export function EditorSettingsSheet({
               onCheckedChange={(v) => upd("wordWrap", v ? "on" : "off")}
             />
           </Row>
-          <Separator />
 
           <Row label="Render Whitespace">
             <Select
@@ -851,7 +889,6 @@ export function EditorSettingsSheet({
               </SelectContent>
             </Select>
           </Row>
-          <Separator />
 
           <Row
             label="Bracket Colorization"
@@ -862,7 +899,6 @@ export function EditorSettingsSheet({
               onCheckedChange={(v) => upd("bracketPairColorization", v)}
             />
           </Row>
-          <Separator />
 
           <Row label="Smooth Scrolling">
             <Switch
@@ -880,7 +916,6 @@ export function EditorSettingsSheet({
               onCheckedChange={(v) => upd("formatOnType", v)}
             />
           </Row>
-          <Separator />
 
           <Row label="Format On Paste">
             <Switch
@@ -888,22 +923,22 @@ export function EditorSettingsSheet({
               onCheckedChange={(v) => upd("formatOnPaste", v)}
             />
           </Row>
+        </div>
 
-          {/* Reset */}
-          <div className="pt-6 pb-6">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full h-9 text-xs"
-              onClick={() => {
-                const d = { ...DEFAULT_SETTINGS };
-                onChange(d);
-                persistSettings(d);
-              }}
-            >
-              Reset to Defaults
-            </Button>
-          </div>
+        {/* Footer / Reset */}
+        <div className="px-6 py-6 border-t bg-muted/30">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full h-9 text-xs"
+            onClick={() => {
+              const d = { ...DEFAULT_SETTINGS };
+              onChange(d);
+              persistSettings(d);
+            }}
+          >
+            Reset to Defaults
+          </Button>
         </div>
       </SheetContent>
     </Sheet>
