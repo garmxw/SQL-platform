@@ -179,9 +179,7 @@ const DIALECTS: { value: Dialect; label: string }[] = [
 
 const DEFAULT_SQL = `-- Write your SQL query here\nSELECT\n  d.name   AS Department,\n  e.name   AS Employee,\n  e.salary AS Salary\nFROM Employee e\nJOIN Department d ON e.departmentId = d.id\n`;
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  XP
-// ═══════════════════════════════════════════════════════════════════════════════
 
 const XP_KEY = "ssql_xp_185";
 const MAX_XP = 500;
@@ -190,9 +188,9 @@ const BASE_XP = 300;
 function XPBar({ xp, delta }: { xp: number; delta: number | null }) {
   return (
     <div className="flex items-center gap-2">
-      <Star className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+      <Star className="w-3.5 h-3.5 shrink-0 text-[#e8af03] fill-[#FFC107]" />
       <div className="flex flex-col gap-0.5">
-        <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-muted-foreground">
+        <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
           <span>
             XP {xp}/{MAX_XP}
           </span>
@@ -258,7 +256,7 @@ function WrongOverlay({ onDone }: { onDone: () => void }) {
   return (
     <div className="pointer-events-none fixed inset-0 z-[200] flex items-center justify-center">
       <div className="flex flex-col items-center gap-3 px-8 py-6 rounded-xl border border-border bg-background/95 backdrop-blur-sm shadow-2xl animate-[wrongShake_0.45s_ease-in-out]">
-        <XCircle className="w-10 h-10 text-muted-foreground" />
+        <XCircle color="red" className="w-10 h-10 text-muted-foreground" />
         <p className="text-base font-semibold">Wrong Answer</p>
         <p className="text-sm text-muted-foreground">
           Review your logic and try again.
@@ -443,7 +441,7 @@ function TimerWidget({ timer }: { timer: ReturnType<typeof useTimer> }) {
       >
         <span
           className={cn(
-            "text-5xl font-mono font-semibold tabular-nums tracking-widest",
+            "text-5xl font-semibold tabular-nums tracking-widest",
             urgent && "animate-pulse",
           )}
         >
@@ -918,13 +916,16 @@ function DifficultyBadge({
 }
 
 function StatusIcon({ status }: { status: RunStatus }) {
-  if (status === "accepted") return <CheckCircle2 className="w-4 h-4" />;
+  if (status === "accepted")
+    return <CheckCircle2 color="green" className="w-4 h-4" />;
   if (status === "wrong")
-    return <XCircle className="w-4 h-4 text-muted-foreground" />;
+    return <XCircle color="red" className="w-4 h-4 text-muted-foreground" />;
   if (status === "error")
-    return <AlertCircle className="w-4 h-4 text-muted-foreground" />;
+    return (
+      <AlertCircle color="orange" className="w-4 h-4 text-muted-foreground" />
+    );
   if (status === "tle")
-    return <Clock className="w-4 h-4 text-muted-foreground" />;
+    return <Clock color="yellow" className="w-4 h-4 text-muted-foreground" />;
   return null;
 }
 
@@ -1112,9 +1113,7 @@ const EditorPanel = React.memo(function EditorPanel({
     <Section className="h-full">
       <div className="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-muted-foreground">
-            solution.sql
-          </span>
+          <span className="text-xs text-muted-foreground">solution.sql</span>
           <Separator orientation="vertical" className="h-4" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1144,13 +1143,13 @@ const EditorPanel = React.memo(function EditorPanel({
             </DropdownMenuContent>
           </DropdownMenu>
           {errorCount > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] font-mono text-red-500">
+            <span className="flex items-center gap-0.5 text-[10px] text-red-500">
               <AlertCircle className="w-3 h-3" />
               {errorCount}
             </span>
           )}
           {warnCount > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] font-mono text-amber-500">
+            <span className="flex items-center gap-0.5 text-[10px] text-amber-500">
               <AlertCircle className="w-3 h-3" />
               {warnCount}
             </span>
@@ -1341,11 +1340,7 @@ export default function LessonEditorPage() {
                   </p>
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {PROBLEM.tags.map((t) => (
-                      <Badge
-                        key={t}
-                        variant="outline"
-                        className="text-[10px] font-mono"
-                      >
+                      <Badge key={t} variant="outline" className="text-[10px] ">
                         {t}
                       </Badge>
                     ))}
@@ -1361,7 +1356,7 @@ export default function LessonEditorPage() {
                           .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
                           .replace(
                             /`(.*?)`/g,
-                            '<code class="bg-muted px-1 py-0.5 rounded text-xs font-mono">$1</code>',
+                            '<code class="bg-muted px-1 py-0.5 rounded text-xs ">$1</code>',
                           ),
                       }}
                     />
@@ -1396,9 +1391,7 @@ export default function LessonEditorPage() {
                     className="rounded-lg border border-border overflow-hidden"
                   >
                     <div className="px-4 py-2.5 bg-muted/40 border-b border-border">
-                      <p className="text-xs font-mono font-semibold">
-                        {tbl.table}
-                      </p>
+                      <p className="text-xs  font-semibold">{tbl.table}</p>
                     </div>
                     <Table>
                       <TableHeader>
@@ -1413,17 +1406,17 @@ export default function LessonEditorPage() {
                       <TableBody>
                         {tbl.columns.map((col) => (
                           <TableRow key={col.name} className="border-border">
-                            <TableCell className="text-xs font-mono pl-4 py-2">
+                            <TableCell className="text-xs  pl-4 py-2">
                               {col.name}
                             </TableCell>
-                            <TableCell className="text-xs font-mono text-muted-foreground py-2">
+                            <TableCell className="text-xs  text-muted-foreground py-2">
                               {col.type}
                             </TableCell>
                             <TableCell className="py-2">
                               {col.note && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[9px] font-mono py-0"
+                                  className="text-[9px]  py-0"
                                 >
                                   {col.note}
                                 </Badge>
@@ -1514,9 +1507,7 @@ export default function LessonEditorPage() {
                 ) : (
                   <div className="rounded-lg border border-border overflow-hidden">
                     <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex items-center justify-between">
-                      <p className="text-xs font-mono font-semibold">
-                        solution.sql
-                      </p>
+                      <p className="text-xs  font-semibold">solution.sql</p>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1526,7 +1517,7 @@ export default function LessonEditorPage() {
                         Use in editor
                       </Button>
                     </div>
-                    <pre className="p-4 text-xs font-mono leading-6 overflow-x-auto whitespace-pre">
+                    <pre className="p-4 text-xs  leading-6 overflow-x-auto whitespace-pre">
                       {PROBLEM.solution}
                     </pre>
                   </div>
@@ -1566,7 +1557,7 @@ export default function LessonEditorPage() {
                     <div className="flex items-center gap-3">
                       <StatusIcon status={s.status} />
                       <div>
-                        <p className="text-sm font-medium">
+                        <p className={`text-sm font-medium`}>
                           {s.status === "accepted"
                             ? "Accepted"
                             : s.status === "wrong"
@@ -1578,7 +1569,7 @@ export default function LessonEditorPage() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs font-mono text-muted-foreground">
+                    <span className="text-xs  text-muted-foreground">
                       {s.runtime}
                     </span>
                   </div>
@@ -1617,7 +1608,7 @@ export default function LessonEditorPage() {
             </TabsList>
             <div className="ml-auto flex items-center gap-1 pr-2">
               {result.runtime && (
-                <span className="text-xs font-mono text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {result.runtime}
                 </span>
               )}
@@ -1645,10 +1636,7 @@ export default function LessonEditorPage() {
                     <TableHeader>
                       <TableRow className="hover:bg-transparent border-border bg-muted/30">
                         {Object.keys(PROBLEM.exampleOutput[0]).map((k) => (
-                          <TableHead
-                            key={k}
-                            className="text-xs h-8 font-mono px-4"
-                          >
+                          <TableHead key={k} className="text-xs h-8  px-4">
                             {k}
                           </TableHead>
                         ))}
@@ -1658,10 +1646,7 @@ export default function LessonEditorPage() {
                       {PROBLEM.exampleOutput.map((row, i) => (
                         <TableRow key={i} className="border-border">
                           {Object.values(row).map((v, j) => (
-                            <TableCell
-                              key={j}
-                              className="text-sm font-mono px-4 py-2"
-                            >
+                            <TableCell key={j} className="text-sm  px-4 py-2">
                               {String(v)}
                             </TableCell>
                           ))}
@@ -1691,7 +1676,7 @@ export default function LessonEditorPage() {
                   )}
                   {result.status === "error" && (
                     <div className="rounded-lg border border-border bg-muted/30 p-4">
-                      <p className="text-sm font-mono text-muted-foreground">
+                      <p className="text-sm  text-muted-foreground">
                         {result.error}
                       </p>
                     </div>
@@ -1707,7 +1692,7 @@ export default function LessonEditorPage() {
                               {Object.keys(result.rows[0]).map((k) => (
                                 <TableHead
                                   key={k}
-                                  className="text-xs h-8 font-mono px-4"
+                                  className="text-xs h-8  px-4"
                                 >
                                   {k}
                                 </TableHead>
@@ -1720,7 +1705,7 @@ export default function LessonEditorPage() {
                                 {Object.values(row).map((v, j) => (
                                   <TableCell
                                     key={j}
-                                    className="text-sm font-mono px-4 py-2"
+                                    className="text-sm px-4 py-2"
                                   >
                                     {String(v)}
                                   </TableCell>
@@ -1753,7 +1738,7 @@ export default function LessonEditorPage() {
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="flex items-center gap-1.5 pr-3 border-r border-border">
             <Code2 className="w-4 h-4" />
-            <span className="text-sm font-semibold tracking-tight">ssql</span>
+            <span className="text-sm font-semibold tracking-tight">Vorn</span>
           </div>
           <TooltipProvider delayDuration={300}>
             <Tooltip>
@@ -1833,7 +1818,7 @@ export default function LessonEditorPage() {
           )}
           <span
             className={cn(
-              "font-mono text-sm tabular-nums select-none leading-none",
+              "text-sm tabular-nums select-none leading-none",
               timer.mounted
                 ? timer.active
                   ? "text-foreground"
@@ -2082,7 +2067,7 @@ export default function LessonEditorPage() {
       </div>
 
       {/* ── Status bar ── */}
-      <div className="h-6 border-t border-border flex items-center justify-between px-3 shrink-0 bg-background text-[11px] font-mono text-muted-foreground">
+      <div className="h-6 border-t border-border flex items-center justify-between px-3 shrink-0 bg-background text-[11px] text-muted-foreground">
         <div className="flex items-center gap-3">
           <span>{DIALECTS.find((d) => d.value === dialect)?.label}</span>
           <Separator orientation="vertical" className="h-3" />

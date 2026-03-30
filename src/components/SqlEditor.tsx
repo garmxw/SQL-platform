@@ -1,20 +1,7 @@
 "use client";
 
 /**
- * SqlEditor.tsx — stable Monaco-based SQL editor (FIXED)
- *
- * Fixes applied:
- *   1. Hydration mismatch on loading overlay (the exact error you saw).
- *      → The `dark` prop can differ between server render and client initial render
- *        when the parent uses `typeof window` / media query / localStorage for theme.
- *      → Now the loading background is always dark on first render (matches server + hydrate),
- *        then updates safely after mount. No more mismatch, no suppressHydrationWarning hack.
- *   2. Made editor more resilient to rapid mount/unmount (StrictMode / HMR).
- *   3. Minor performance / stability tweaks (memoized callbacks, clearer dead-flag handling).
- *   4. Loading state now survives if monaco fails to load (shows error instead of infinite spinner).
- *   5. Better error handling on monaco bootstrap.
- *
- * The rest of the editor (linting, completions, settings, value sync, etc.) was already solid.
+ * SqlEditor.tsx — stable Monaco-based SQL editor (FIXED + Font Selector)
  */
 
 import React, {
@@ -48,12 +35,13 @@ import {
 import { Settings2 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Types (unchanged)
+// Types — UPDATED with fontFamily
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type Dialect = "mysql" | "postgres" | "sqlite";
 
 export interface EditorSettings {
+  fontFamily: "JetBrains Mono" | "Fira Code" | "monospace";
   fontSize: number;
   tabSize: number;
   lineNumbers: "on" | "off" | "relative";
@@ -69,6 +57,7 @@ export interface EditorSettings {
 }
 
 export const DEFAULT_SETTINGS: EditorSettings = {
+  fontFamily: "JetBrains Mono", // ← best looking default
   fontSize: 14,
   tabSize: 2,
   lineNumbers: "on",
@@ -101,7 +90,7 @@ function persistSettings(s: EditorSettings) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Monaco singleton bootstrap (unchanged — already very stable)
+// Monaco singleton bootstrap (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type MonacoModule = typeof import("monaco-editor");
@@ -167,23 +156,23 @@ function setupMonaco(monaco: MonacoModule) {
     base: "vs-dark",
     inherit: true,
     rules: [
-      { token: "keyword.sql", foreground: "c792ea", fontStyle: "bold" },
-      { token: "keyword", foreground: "c792ea", fontStyle: "bold" },
-      { token: "string.sql", foreground: "c3e88d" },
-      { token: "string", foreground: "c3e88d" },
-      { token: "number", foreground: "f78c6c" },
-      { token: "comment", foreground: "546e7a", fontStyle: "italic" },
-      { token: "operator", foreground: "89ddff" },
-      { token: "delimiter", foreground: "89ddff" },
+      { token: "keyword", foreground: "#2b7fff", fontStyle: "bold" }, // blue-500
+      { token: "keyword.sql", foreground: "#60a5fa", fontStyle: "bold" }, // sky-400
+      { token: "string", foreground: "#86efac" }, // green-300
+      { token: "string.sql", foreground: "#86efac" },
+      { token: "number", foreground: "#60a5fa" }, // sky-400 (was violet)
+      { token: "comment", foreground: "#64748b", fontStyle: "italic" }, // slate-500
+      { token: "comment.sql", foreground: "#64748b", fontStyle: "italic" },
+      { token: "operator.sql", foreground: "#94a3b8" }, // slate-400
     ],
     colors: {
-      "editor.background": "#0f1117",
-      "editor.foreground": "#eeffff",
+      "editor.background": "#0a0a0a",
+      "editor.foreground": "#e2e8f0",
       "editor.lineHighlightBackground": "#1a1d2e",
       "editor.selectionBackground": "#2a3a5e",
-      "editorLineNumber.foreground": "#3b4261",
-      "editorLineNumber.activeForeground": "#6b7280",
-      "editorCursor.foreground": "#c792ea",
+      "editorLineNumber.foreground": "#475569",
+      "editorLineNumber.activeForeground": "#fafafa",
+      "editorCursor.foreground": "#60a5fa", // blue (was violet #c792ea)
       "editorWidget.background": "#13151f",
       "editorSuggestWidget.background": "#13151f",
       "editorSuggestWidget.border": "#1e2030",
@@ -192,27 +181,28 @@ function setupMonaco(monaco: MonacoModule) {
   });
 
   // Light theme
+
   monaco.editor.defineTheme("ssql-light", {
     base: "vs",
     inherit: true,
     rules: [
-      { token: "keyword.sql", foreground: "7c3aed", fontStyle: "bold" },
-      { token: "keyword", foreground: "7c3aed", fontStyle: "bold" },
-      { token: "string.sql", foreground: "16a34a" },
-      { token: "string", foreground: "16a34a" },
-      { token: "number", foreground: "ea580c" },
-      { token: "comment", foreground: "9ca3af", fontStyle: "italic" },
-      { token: "operator", foreground: "0284c7" },
-      { token: "delimiter", foreground: "0284c7" },
+      { token: "keyword", foreground: "#1e40af", fontStyle: "bold" }, // blue-800
+      { token: "keyword.sql", foreground: "#1e40af", fontStyle: "bold" },
+      { token: "string", foreground: "#047857" }, // emerald-700
+      { token: "string.sql", foreground: "#047857" },
+      { token: "number", foreground: "#1e40af" }, // blue-800 (was violet)
+      { token: "comment", foreground: "#6b7280", fontStyle: "italic" }, // gray-500
+      { token: "comment.sql", foreground: "#6b7280", fontStyle: "italic" },
+      { token: "operator.sql", foreground: "#374151" }, // gray-700
     ],
     colors: {
       "editor.background": "#ffffff",
       "editor.foreground": "#111827",
       "editor.lineHighlightBackground": "#f9fafb",
       "editor.selectionBackground": "#dbeafe",
-      "editorLineNumber.foreground": "#d1d5db",
-      "editorLineNumber.activeForeground": "#9ca3af",
-      "editorCursor.foreground": "#7c3aed",
+      "editorLineNumber.foreground": "#9ca3af", // fixed double #
+      "editorLineNumber.activeForeground": "#1e40af",
+      "editorCursor.foreground": "#1e40af", // blue (was violet #7c3aed)
       "editorWidget.background": "#f9fafb",
       "editorSuggestWidget.background": "#ffffff",
       "editorSuggestWidget.border": "#e5e7eb",
@@ -220,7 +210,7 @@ function setupMonaco(monaco: MonacoModule) {
     },
   });
 
-  // SQL completions (unchanged)
+  // SQL completions
   const SQL_KEYWORDS = [
     "SELECT",
     "FROM",
@@ -343,7 +333,6 @@ function setupMonaco(monaco: MonacoModule) {
 // SQL linter (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/* ... LintRule, COMMON, DIALECT, lint function unchanged ... */
 interface LintRule {
   re: RegExp;
   msg: string;
@@ -448,7 +437,6 @@ function lint(
   model: import("monaco-editor").editor.ITextModel,
   dialect: Dialect,
 ): IMarkerData[] {
-  /* ... same as original ... */
   const lines = model.getValue().split("\n");
   const rules = [...COMMON, ...(DIALECT[dialect] ?? [])];
   const out: IMarkerData[] = [];
@@ -471,12 +459,11 @@ function lint(
       }
     }
   }
-
   return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MonacoEditor — FIXED
+// MonacoEditor — UPDATED with dynamic fontFamily
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface MonacoEditorProps {
@@ -503,7 +490,6 @@ export const MonacoEditor = React.memo(function MonacoEditor({
   const moRef = useRef<MonacoModule | null>(null);
   const lintRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fresh callbacks
   const cbChange = useRef(onChange);
   const cbMarkers = useRef(onMarkers);
   const dRef = useRef(dialect);
@@ -525,13 +511,11 @@ export const MonacoEditor = React.memo(function MonacoEditor({
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // ── FIX: Stable loading background (prevents hydration mismatch) ─────────────
   const [loadingBackground, setLoadingBackground] = useState("#0f1117");
   useEffect(() => {
     setLoadingBackground(dark ? "#0f1117" : "#ffffff");
   }, [dark]);
 
-  // Debounced lint
   const scheduleLint = useCallback(() => {
     if (lintRef.current) clearTimeout(lintRef.current);
     lintRef.current = setTimeout(() => {
@@ -546,7 +530,6 @@ export const MonacoEditor = React.memo(function MonacoEditor({
     }, 500);
   }, []);
 
-  // ── Create editor once (improved error handling + dead flag) ───────────────
   useEffect(() => {
     let dead = false;
     let mounted = true;
@@ -565,8 +548,7 @@ export const MonacoEditor = React.memo(function MonacoEditor({
           automaticLayout: true,
           scrollBeyondLastLine: false,
           padding: { top: 12, bottom: 12 },
-          fontFamily:
-            "'JetBrains Mono','Fira Code','Cascadia Code',Consolas,monospace",
+          fontFamily: `${s.fontFamily}, monospace`,
           fontSize: s.fontSize,
           tabSize: s.tabSize,
           lineNumbers: s.lineNumbers,
@@ -610,10 +592,8 @@ export const MonacoEditor = React.memo(function MonacoEditor({
       edRef.current?.dispose();
       edRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentional: create once
+  }, []);
 
-  // ── Sync external value changes ────────────────────────────────────────────
   useEffect(() => {
     const ed = edRef.current;
     if (!ed || !ready) return;
@@ -621,28 +601,22 @@ export const MonacoEditor = React.memo(function MonacoEditor({
 
     const model = ed.getModel()!;
     ed.executeEdits("host", [
-      {
-        range: model.getFullModelRange(),
-        text: value,
-        forceMoveMarkers: true,
-      },
+      { range: model.getFullModelRange(), text: value, forceMoveMarkers: true },
     ]);
     ed.setPosition({ lineNumber: 1, column: 1 });
   }, [value, ready]);
 
-  // ── Theme sync ─────────────────────────────────────────────────────────────
   useEffect(() => {
     moRef.current?.editor.setTheme(dark ? "ssql-dark" : "ssql-light");
   }, [dark]);
 
-  // ── Dialect / lint trigger ─────────────────────────────────────────────────
   useEffect(() => {
     scheduleLint();
   }, [dialect, scheduleLint]);
 
-  // ── Settings sync ──────────────────────────────────────────────────────────
   useEffect(() => {
     edRef.current?.updateOptions({
+      fontFamily: `${settings.fontFamily}, monospace`,
       fontSize: settings.fontSize,
       tabSize: settings.tabSize,
       lineNumbers: settings.lineNumbers,
@@ -684,14 +658,13 @@ export const MonacoEditor = React.memo(function MonacoEditor({
           </div>
         </div>
       )}
-
-      {/* Editor container — always mounted */}
       <div ref={domRef} className="w-full h-full" />
     </div>
   );
 });
+
 // ─────────────────────────────────────────────────────────────────────────────
-// EditorSettingsSheet — Shadcn-style (clean & modern)
+// EditorSettingsSheet — Modern Shadcn UI + Font Selector
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Row({
@@ -720,7 +693,7 @@ function Row({
 
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mt-6 mb-2">
+    <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mt-7 mb-2">
       {children}
     </p>
   );
@@ -753,179 +726,164 @@ export function EditorSettingsSheet({
         side="right"
         className="w-[340px] sm:w-[380px] flex flex-col p-0"
       >
-        {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b">
           <SheetTitle className="flex items-center gap-2 text-base">
             <Settings2 className="w-4 h-4" />
             Editor Settings
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
-            Customize font, layout, behavior and appearance of the SQL editor.
+            Customize the look, feel and behavior of the SQL editor.
           </SheetDescription>
         </SheetHeader>
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          {/* Typography */}
-          <SectionHeading>Typography</SectionHeading>
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+          <div>
+            <SectionHeading>Typography</SectionHeading>
 
-          <Row label="Font Size" hint={`${settings.fontSize}px`}>
-            <Slider
-              value={[settings.fontSize]}
-              onValueChange={([v]) => upd("fontSize", v)}
-              min={10}
-              max={24}
-              step={1}
-              className="w-28"
-            />
-          </Row>
+            <Row label="Font Family">
+              <Select
+                value={settings.fontFamily}
+                onValueChange={(v) =>
+                  upd("fontFamily", v as EditorSettings["fontFamily"])
+                }
+              >
+                <SelectTrigger className="h-9 w-48 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="JetBrains Mono">JetBrains Mono</SelectItem>
+                  <SelectItem value="Fira Code">Fira Code</SelectItem>
+                  <SelectItem value="monospace">System Monospace</SelectItem>
+                </SelectContent>
+              </Select>
+            </Row>
 
-          <Row label="Cursor Style">
-            <Select
-              value={settings.cursorStyle}
-              onValueChange={(v) =>
-                upd("cursorStyle", v as EditorSettings["cursorStyle"])
-              }
+            <Row label="Font Size" hint={`${settings.fontSize}px`}>
+              <Slider
+                value={[settings.fontSize]}
+                onValueChange={([v]) => upd("fontSize", v)}
+                min={10}
+                max={24}
+                step={1}
+                className="w-28"
+              />
+            </Row>
+
+            <Row
+              label="Font Ligatures"
+              hint="Best with JetBrains Mono / Fira Code"
             >
-              <SelectTrigger className="h-8 w-28 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="line" className="text-xs">
-                  Line
-                </SelectItem>
-                <SelectItem value="block" className="text-xs">
-                  Block
-                </SelectItem>
-                <SelectItem value="underline" className="text-xs">
-                  Underline
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </Row>
+              <Switch
+                checked={settings.fontLigatures}
+                onCheckedChange={(v) => upd("fontLigatures", v)}
+              />
+            </Row>
+          </div>
 
-          <Row label="Font Ligatures" hint="Requires a ligature-capable font">
-            <Switch
-              checked={settings.fontLigatures}
-              onCheckedChange={(v) => upd("fontLigatures", v)}
-            />
-          </Row>
+          <div>
+            <SectionHeading>Indentation</SectionHeading>
+            <Row label="Tab Size" hint={`${settings.tabSize} spaces`}>
+              <Slider
+                value={[settings.tabSize]}
+                onValueChange={([v]) => upd("tabSize", v)}
+                min={2}
+                max={8}
+                step={2}
+                className="w-28"
+              />
+            </Row>
+          </div>
 
-          {/* Indentation */}
-          <SectionHeading>Indentation</SectionHeading>
+          <div>
+            <SectionHeading>Display</SectionHeading>
+            <Row label="Line Numbers">
+              <Select
+                value={settings.lineNumbers}
+                onValueChange={(v) =>
+                  upd("lineNumbers", v as EditorSettings["lineNumbers"])
+                }
+              >
+                <SelectTrigger className="h-9 w-28 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="on">On</SelectItem>
+                  <SelectItem value="off">Off</SelectItem>
+                  <SelectItem value="relative">Relative</SelectItem>
+                </SelectContent>
+              </Select>
+            </Row>
 
-          <Row label="Tab Size" hint={`${settings.tabSize} spaces`}>
-            <Slider
-              value={[settings.tabSize]}
-              onValueChange={([v]) => upd("tabSize", v)}
-              min={2}
-              max={8}
-              step={2}
-              className="w-28"
-            />
-          </Row>
+            <Row label="Minimap" hint="Overview ruler on the right edge">
+              <Switch
+                checked={settings.minimap}
+                onCheckedChange={(v) => upd("minimap", v)}
+              />
+            </Row>
 
-          {/* Display */}
-          <SectionHeading>Display</SectionHeading>
+            <Row label="Word Wrap">
+              <Switch
+                checked={settings.wordWrap === "on"}
+                onCheckedChange={(v) => upd("wordWrap", v ? "on" : "off")}
+              />
+            </Row>
 
-          <Row label="Line Numbers">
-            <Select
-              value={settings.lineNumbers}
-              onValueChange={(v) =>
-                upd("lineNumbers", v as EditorSettings["lineNumbers"])
-              }
+            <Row label="Render Whitespace">
+              <Select
+                value={settings.renderWhitespace}
+                onValueChange={(v) =>
+                  upd(
+                    "renderWhitespace",
+                    v as EditorSettings["renderWhitespace"],
+                  )
+                }
+              >
+                <SelectTrigger className="h-9 w-28 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="boundary">Boundary</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+            </Row>
+
+            <Row
+              label="Bracket Colorization"
+              hint="Colour matching bracket pairs"
             >
-              <SelectTrigger className="h-8 w-28 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="on" className="text-xs">
-                  On
-                </SelectItem>
-                <SelectItem value="off" className="text-xs">
-                  Off
-                </SelectItem>
-                <SelectItem value="relative" className="text-xs">
-                  Relative
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </Row>
+              <Switch
+                checked={settings.bracketPairColorization}
+                onCheckedChange={(v) => upd("bracketPairColorization", v)}
+              />
+            </Row>
 
-          <Row label="Minimap" hint="Overview ruler on the right edge">
-            <Switch
-              checked={settings.minimap}
-              onCheckedChange={(v) => upd("minimap", v)}
-            />
-          </Row>
+            <Row label="Smooth Scrolling">
+              <Switch
+                checked={settings.smoothScrolling}
+                onCheckedChange={(v) => upd("smoothScrolling", v)}
+              />
+            </Row>
+          </div>
 
-          <Row label="Word Wrap">
-            <Switch
-              checked={settings.wordWrap === "on"}
-              onCheckedChange={(v) => upd("wordWrap", v ? "on" : "off")}
-            />
-          </Row>
-
-          <Row label="Render Whitespace">
-            <Select
-              value={settings.renderWhitespace}
-              onValueChange={(v) =>
-                upd("renderWhitespace", v as EditorSettings["renderWhitespace"])
-              }
-            >
-              <SelectTrigger className="h-8 w-28 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none" className="text-xs">
-                  None
-                </SelectItem>
-                <SelectItem value="boundary" className="text-xs">
-                  Boundary
-                </SelectItem>
-                <SelectItem value="all" className="text-xs">
-                  All
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </Row>
-
-          <Row
-            label="Bracket Colorization"
-            hint="Colour matching bracket pairs"
-          >
-            <Switch
-              checked={settings.bracketPairColorization}
-              onCheckedChange={(v) => upd("bracketPairColorization", v)}
-            />
-          </Row>
-
-          <Row label="Smooth Scrolling">
-            <Switch
-              checked={settings.smoothScrolling}
-              onCheckedChange={(v) => upd("smoothScrolling", v)}
-            />
-          </Row>
-
-          {/* Auto-Formatting */}
-          <SectionHeading>Auto-Formatting</SectionHeading>
-
-          <Row label="Format On Type">
-            <Switch
-              checked={settings.formatOnType}
-              onCheckedChange={(v) => upd("formatOnType", v)}
-            />
-          </Row>
-
-          <Row label="Format On Paste">
-            <Switch
-              checked={settings.formatOnPaste}
-              onCheckedChange={(v) => upd("formatOnPaste", v)}
-            />
-          </Row>
+          <div>
+            <SectionHeading>Auto-Formatting</SectionHeading>
+            <Row label="Format On Type">
+              <Switch
+                checked={settings.formatOnType}
+                onCheckedChange={(v) => upd("formatOnType", v)}
+              />
+            </Row>
+            <Row label="Format On Paste">
+              <Switch
+                checked={settings.formatOnPaste}
+                onCheckedChange={(v) => upd("formatOnPaste", v)}
+              />
+            </Row>
+          </div>
         </div>
 
-        {/* Footer / Reset */}
         <div className="px-6 py-6 border-t bg-muted/30">
           <Button
             variant="outline"
