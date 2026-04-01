@@ -6,6 +6,8 @@ import { ThemeProvider } from "@/components/providers/themeProvider";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 const inter = Inter({ subsets: ["latin"], weight: "400" });
+import { Sora } from "next/font/google";
+const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
 
 export default function RootLayout({
   children,
@@ -16,7 +18,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("font-sans", geist.variable)}
+      className={cn("font-sans", geist.variable, sora.variable)}
     >
       <body className={`${inter.className} antialiased`}>
         <ThemeProvider

@@ -1,9 +1,9 @@
+"use client";
+
+import Hero from "@/components/Hero";
+
 function Main() {
-  return (
-    <div className="flex font-semibold items-center justify-center h-200">
-      Main page
-    </div>
-  );
+  return <Hero />;
 }
 
 export default Main;
