@@ -1,5 +1,6 @@
 "use client";
-import { Button } from "@/components/ui/button";
+import { ChevronLeftIcon } from "lucide-react";
+
 import {
   Card,
   CardContent,
@@ -7,12 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-
 import VornLight from "../../public/vorn_dark.svg";
 import VornDark from "../../public/vorn_light.svg";
-import AuthBackgroundShape from "./AuthBackground";
-import LoginForm from "./Login-form";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -23,46 +20,12 @@ import {
 } from "./ui/dropdown-menu";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Button } from "./ui/button";
 
-function IsAdminLogging() {
-  const [isMounted, setIsMounted] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+import AuthBackgroundShape from "@/components/AuthBackground";
+import ResetPasswordForm from "@/components/ResetPasswordForm";
 
-  useEffect(() => {
-    setIsMounted(true);
-    // Check if the current hostname starts with 'admin.'
-    setIsAdmin(window.location.hostname.startsWith("admin."));
-  }, []);
-
-  // Don't render anything until we know the environment to avoid flashing
-  if (!isMounted) return null;
-
-  // Only show the signup link if NOT on the admin subdomain
-  if (isAdmin) return null;
-
-  return (
-    <>
-      <p className="text-muted-foreground text-center">
-        New on our platform?{" "}
-        <a href="/signup" className="text-card-foreground hover:underline">
-          Create an account
-        </a>
-      </p>
-      <div className="flex items-center gap-4">
-        <Separator className="flex-1" />
-        <p>or</p>
-        <Separator className="flex-1" />
-      </div>
-
-      <Button variant="ghost" className="w-full" asChild>
-        <a href="#">Log in with google</a>
-      </Button>
-    </>
-  );
-}
-
-const Login = () => {
+const ResetPassword = () => {
   const { setTheme } = useTheme();
 
   return (
@@ -71,7 +34,7 @@ const Login = () => {
         <AuthBackgroundShape />
       </div>
 
-      <Card className="z-1 w-full border-none shadow-md sm:max-w-lg">
+      <Card className="z-1 w-full border-none shadow-md sm:max-w-md">
         <CardHeader className="gap-6">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2 w-fit">
@@ -118,28 +81,30 @@ const Login = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
           <div>
-            <CardTitle className="mb-1.5 text-2xl">
-              Login to Shadcn Studio
-            </CardTitle>
+            <CardTitle className="mb-1.5 text-2xl">Reset Password</CardTitle>
             <CardDescription className="text-base">
-              Focus on growth by learning faster.
+              Please enter your current password and choose a new password to
+              update your account security.
             </CardDescription>
           </div>
         </CardHeader>
 
-        <CardContent>
-          {/* Login Form */}
-          <div className="space-y-4">
-            <LoginForm />
+        <CardContent className="space-y-4">
+          {/* ResetPassword Form */}
+          <ResetPasswordForm />
 
-            <IsAdminLogging />
-          </div>
+          <a
+            href="/login"
+            className="group mx-auto flex w-fit items-center gap-2"
+          >
+            <ChevronLeftIcon className="size-5 transition-transform duration-200 group-hover:-translate-x-0.5" />
+            <span>Back to login</span>
+          </a>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default Login;
+export default ResetPassword;

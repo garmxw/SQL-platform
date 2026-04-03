@@ -1,3 +1,5 @@
+"use client";
+
 import { Renderer, Program, Mesh, Color, Triangle } from "ogl";
 import React, { useEffect, useRef, useMemo, useCallback } from "react";
 
@@ -261,7 +263,9 @@ export default function FaultyTerminal({
   tint = "#ffffff",
   mouseReact = true,
   mouseStrength = 0.2,
-  dpr = Math.min(window.devicePixelRatio || 1, 2),
+  dpr = typeof window !== "undefined"
+    ? Math.min(window.devicePixelRatio || 1, 2)
+    : 1,
   pageLoadAnimation = true,
   brightness = 1,
   className,

@@ -5,7 +5,7 @@
 // Separable: import { ShowcaseSection } from "@/components/sections/showcase-section"
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useScroll, useTransform, motion } from "motion/react";
 import { GradualBlur } from "@/components/GradualBlur";
 import { Badge } from "@/components/ui/badge";
@@ -145,10 +145,21 @@ function StatsCard() {
 }
 
 function HeatmapCard() {
-  const cells = Array.from({ length: 35 }, (_, i) => {
-    const r = Math.random();
-    return r > 0.9 ? 4 : r > 0.75 ? 3 : r > 0.55 ? 2 : r > 0.4 ? 1 : 0;
-  });
+  const [mounted, setMounted] = useState(false);
+  // Start with an empty server-safe state (all 0s)
+  const [cells, setCells] = useState<number[]>(Array(35).fill(0));
+
+  useEffect(() => {
+    setMounted(true);
+    // Generate the random data only on the client
+    setCells(
+      Array.from({ length: 35 }, () => {
+        const r = Math.random();
+        return r > 0.9 ? 4 : r > 0.75 ? 3 : r > 0.55 ? 2 : r > 0.4 ? 1 : 0;
+      }),
+    );
+  }, []);
+
   const intensities = [
     "bg-muted",
     "bg-foreground/20",
@@ -156,6 +167,7 @@ function HeatmapCard() {
     "bg-foreground/65",
     "bg-foreground",
   ];
+
   return (
     <div className="w-full h-full bg-card border border-border rounded-xl p-4 overflow-hidden">
       <p
@@ -168,7 +180,8 @@ function HeatmapCard() {
         {cells.map((v, i) => (
           <div
             key={i}
-            className={`aspect-square rounded-sm ${intensities[v]}`}
+            // Add a subtle pulse while the server version is showing
+            className={`aspect-square rounded-sm ${intensities[v]} ${!mounted ? "opacity-50" : "transition-opacity duration-500"}`}
           />
         ))}
       </div>

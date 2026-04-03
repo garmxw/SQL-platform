@@ -7,8 +7,8 @@ const router = Router();
 // disabling solution view
 // maintenance mode
 
-router.get("/health");
-router.get("/version");
-router.get("/config");
+// router.get("/health");
+// router.get("/version");
+// router.get("/config");
 
 export default router;

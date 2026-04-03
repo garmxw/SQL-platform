@@ -7,7 +7,7 @@ import {
   updateLoginHistory,
   find_user_by_token,
   updatePassword,
-} from "../services/userQueries.js";
+} from "#shared/services/userQueries.js";
 import { generateVerificationCode } from "../utils/generateVerificationCode.js";
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 import { sendVerificationEmail } from "../mail/utils/sendVerificationEmail.js";
@@ -24,9 +24,15 @@ export const signup = async (req, res) => {
     //check if user or username exists
     const existingUser = await findUserBy_email_Or_username(email, username);
     if (existingUser) {
+      // Be specific so the frontend can highlight the right field
+      const message =
+        existingUser.email === email
+          ? "Email already exists"
+          : "Username already exists";
+
       return res.status(409).json({
         status: "error",
-        message: "email or username already exists",
+        message: message,
       });
     }
 
@@ -49,7 +55,7 @@ export const signup = async (req, res) => {
       verificationData.ExpiryDate,
     );
 
-    const token = generateTokenAndSetCookie(user, res);
+    const token = generateTokenAndSetCookie(user, res, false);
     const requestTime = new Date().toLocaleString("en-US", {
       month: "short",
       day: "numeric",
@@ -85,17 +91,23 @@ export const signup = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    // check if user exists
-    const existingUser = await findUserBy_email_Or_username(email, null);
+    // 1. Destructure all fields from the frontend body
+    const { method, identifier, password, rememberMe } = req.body;
 
-    // existingUser.rows[0].length === 0 means no user found with the provided email
+    // 2. Pass identifier to the specific parameter based on the method
+    // findUserBy_email_Or_username(email, username)
+    const existingUser = await findUserBy_email_Or_username(
+      method === "email" ? identifier : null,
+      method === "username" ? identifier : null,
+    );
+
     if (!existingUser) {
       return res.status(401).json({
         status: "failed",
-        message: "Invalid cerdentials, please try again",
+        message: `Invalid ${method}, please try again`,
       });
     }
+
     const isPasswordValid = await bcrypt.compare(
       password,
       existingUser.password_hash,
@@ -108,25 +120,11 @@ export const login = async (req, res) => {
       });
     }
 
-    const token = generateTokenAndSetCookie(existingUser, res);
+    // 3. Pass rememberMe to set the correct session length
+    const token = generateTokenAndSetCookie(existingUser, res, rememberMe);
     await updateLoginHistory(existingUser.id);
 
-    // res.status(200).json({
-    //   status: "success",
-    //   message: "User logged in successfully",
-    //   data: {
-    //     user: {
-    //       id: existingUser.id,
-    //       username: existingUser.username,
-    //       email: existingUser.email,
-    //       user_role: existingUser.user_role,
-    //       last_login: existingUser.last_login,
-    //     },
-    //     token: token,
-    //   },
-    // });
-
-    res.status(201).json({
+    res.status(200).json({
       status: "success",
       message: "Logged in successfully",
       data: {
@@ -145,7 +143,6 @@ export const login = async (req, res) => {
     });
   }
 };
-
 export const logout = (req, res) => {
   try {
     res.clearCookie("token", {
@@ -181,15 +178,21 @@ export const forgotPassword = async (req, res) => {
     // token for the reset link
     const resetToken = crypto.randomBytes(20).toString("hex");
     const resetTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000); //30 minutes
-    console.log("Rest token from forgetPass: ", resetToken);
+    console.log("Reset token from forgetPass: ", resetToken);
 
     await saveVerificationCodeHash(user.id, resetToken, resetTokenExpiresAt);
     //sending email
-    // await sendPasswordResetEmail(
-    //   user.email,
-    //   `${process.env.CLIENT_URL}/reset-password/${resetToken}`, // react app link
-    // );
-
+    /* 
+    process.env.NODE_ENV === "production"
+      ? await sendPasswordResetEmail(
+          user.email,
+          `${process.env.DOMAIN}/reset-password/${resetToken}`, // next app link
+        )
+      : console.log(
+          "Reset link (dev mode): ",
+          `${process.env.LOCAL_DOMAIN}/reset-password/${resetToken}`,
+        );
+    */
     res.status(200).json({
       status: "success",
       message: "Password reset link sent to your email",
@@ -204,34 +207,52 @@ export const forgotPassword = async (req, res) => {
 };
 
 export const resetPassword = async (req, res) => {
-  const { password } = req.body;
+  const { password, confirmPassword } = req.body;
   const { token } = req.params;
 
-  if (!password || !token) {
+  // 1. Basic presence check
+  if (!password || !confirmPassword || !token) {
     return res.status(400).json({
       status: "error",
-      message: "Something wrong happend, Try again",
+      message: "Missing required fields. Please try again.",
+    });
+  }
+
+  // 2. Extra check: Do they match?
+  if (password !== confirmPassword) {
+    return res.status(400).json({
+      status: "error",
+      message: "Passwords do not match.",
     });
   }
 
   try {
     const user = await find_user_by_token(token);
-    if (!user) {
-      throw new Error("Invalid or expired token");
-    }
-    const hashedPssword = await bcrypt.hash(password, 12);
-    await updatePassword(user.id, hashedPssword);
-    //send reset succes email
-    //await sendResetSuccessEmail(user.email, true, false); // flags
 
-    res
-      .status(200)
-      .json({ status: "success", message: "Password reset successfully" });
+    if (!user) {
+      // It's better to throw a specific error here
+      console.log("user not found with token: ", token);
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid or expired token.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await updatePassword(user.id, hashedPassword);
+
+    // 3. Send reset success email (keeping your function as requested)
+    // await sendResetSuccessEmail(user.email, true, false);
+
+    res.status(200).json({
+      status: "success",
+      message: "Password reset successfully",
+    });
   } catch (error) {
-    console.log("Error in reset password: ", error);
-    res.status(400).json({
+    console.error("Error in reset password: ", error);
+    res.status(500).json({
       status: "error",
-      message: error.message,
+      message: "An internal error occurred. Please try again later.",
     });
   }
 };

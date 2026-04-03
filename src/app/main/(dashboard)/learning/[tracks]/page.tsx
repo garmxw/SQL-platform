@@ -63,11 +63,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  MAGIC UI — INLINED
-// ═══════════════════════════════════════════════════════════════════════════════
 
-// ── ScrollProgress ────────────────────────────────────────────────────────────
+//  ScrollProgress
 function ScrollProgress() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -83,7 +81,7 @@ function ScrollProgress() {
   );
 }
 
-// ── DotPattern ────────────────────────────────────────────────────────────────
+//  DotPattern
 function DotPattern({
   width = 16,
   height = 16,
@@ -164,7 +162,7 @@ function BlurFade({
   );
 }
 
-// ── NumberTicker ──────────────────────────────────────────────────────────────
+//  NumberTicker
 function NumberTicker({
   value,
   delay = 0,
@@ -198,7 +196,7 @@ function NumberTicker({
   );
 }
 
-// ── BorderBeam ────────────────────────────────────────────────────────────────
+//  BorderBeam
 function BorderBeam({
   size = 300,
   duration = 14,
@@ -241,7 +239,7 @@ function BorderBeam({
   );
 }
 
-// ── InteractiveHoverButton ────────────────────────────────────────────────────
+//  InteractiveHoverButton
 // Faithful to Magic UI spec: text slides left, arrow slides in from right on hover
 function InteractiveHoverButton({
   children,
@@ -274,7 +272,7 @@ function InteractiveHoverButton({
   );
 }
 
-// ── AnimatedCircularProgressBar ───────────────────────────────────────────────
+//  AnimatedCircularProgressBar
 function AnimatedCircularProgressBar({
   value,
   gaugePrimaryColor = "hsl(var(--foreground))",
@@ -328,7 +326,7 @@ function AnimatedCircularProgressBar({
   );
 }
 
-// ── CompletedBanner — shown on 100% tracks ────────────────────────────────────
+//  CompletedBanner — shown on 100% tracks
 function CompletedBanner() {
   return (
     <div className="relative flex items-center justify-center gap-2 overflow-hidden rounded-md border border-border bg-foreground px-4 py-2.5">
@@ -343,9 +341,7 @@ function CompletedBanner() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  DATA TYPES & MOCK DATA
-// ═══════════════════════════════════════════════════════════════════════════════
 
 type ItemStatus = "completed" | "in-progress" | "locked";
 
@@ -953,9 +949,9 @@ const TRACKS: Track[] = [
   },
 ];
 
-// ═══════════════════════════════════════════════════════════════════════════════
+//
 //  HELPERS
-// ═══════════════════════════════════════════════════════════════════════════════
+//
 
 function computeCompletion(track: Track) {
   let total = 0;
@@ -1003,9 +999,7 @@ function TagBadge({ tag }: { tag: Track["tag"] }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  LESSON DIALOG
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function LessonDialog({
   lesson,
@@ -1180,9 +1174,7 @@ function LessonDialog({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  LESSON ROW
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function StatusIcon({
   status,
@@ -1301,9 +1293,7 @@ function LessonRow({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  TRACK CARD
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function TrackCard({
   track,
@@ -1431,9 +1421,7 @@ function TrackCard({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  SUMMARY STRIP
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function SummaryStrip() {
   const totalLessons = TRACKS.reduce((s, t) => s + t.totalLessons, 0);
@@ -1511,9 +1499,7 @@ function SummaryStrip() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  PAGE
-// ═══════════════════════════════════════════════════════════════════════════════
 
 export default function TracksPage() {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);

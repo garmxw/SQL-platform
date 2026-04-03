@@ -12,7 +12,7 @@
     "#src/*": "./src/*"
   },
   "scripts": {
-    "dev:backend": "nodemon --exec ts-node --esm src/server/index.ts",
+    "dev:backend": "nodemon --exec tsx src/server/index.ts",
     "dev:backend:js": "nodemon src/server/index.js",
     "dev:frontend": "next dev",
     "build": "next build",
@@ -34,6 +34,7 @@
     "cmdk": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "cookieparser": "^0.1.0",
+    "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.4",
     "embla-carousel-react": "^8.6.0",
@@ -41,6 +42,7 @@
     "express-validator": "^7.3.1",
     "framer-motion": "^12.38.0",
     "input-otp": "^1.4.2",
+    "jose": "^6.2.2",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.577.0",
     "mailtrap": "^4.4.0",
@@ -70,6 +72,7 @@
     "@tailwindcss/postcss": "^4.2.1",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.4.0",
@@ -81,6 +84,7 @@
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

@@ -2,6 +2,7 @@ import express from "express";
 import next from "next";
 import { db } from "#shared/config/db.js";
 import cookieParser from "cookie-parser";
+import cors from "cors";
 import dotenv from "dotenv";
 
 // Route imports
@@ -52,6 +53,21 @@ const testDbConnection = async () => {
 
 nextApp.prepare().then(() => {
   const server = express();
+  // configuring CORS
+  server.use(
+    cors({
+      // Add all the local origins you use
+      origin: [
+        `${process.env.LOCAL_DOMAIN}:${PORT}`,
+        `${process.env.ADMIN_LOCAL_DOMAIN}:${PORT}`,
+        `${process.env.DOMAIN}:${PORT}`,
+        `${process.env.ADMIN_DOMAIN}:${PORT}`,
+      ],
+      credentials: true, // Allows the browser to send the JWT cookie to Express
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"],
+    }),
+  );
 
   // 1. Middlewares
   server.use(express.json());
@@ -72,15 +88,16 @@ nextApp.prepare().then(() => {
   server.use("/api/system", systemRouter);
   server.use("/leaderboard", leaderboardRouter);
   server.use("/api/admin", adminSubdomainCheck, adminPanelRouter);
-
-  // 3. Next.js Handler (MUST be last)
-  // This tells Express: "If none of the above routes match, let Next.js handle it."
-  server.all("*", (req, res) => {
+  server.get("/", (req, res) => {
     return handle(req, res);
   });
 
+  // Next.js Handler (MUST be last)
+  // This tells Express: "If none of the above routes match, let Next.js handle it."
+  server.all("/*splat", (req, res) => {
+    return handle(req, res);
+  });
   testDbConnection();
-
   server.listen(PORT, () => {
     console.log(`> Unified Server ready on :${PORT}`);
   });

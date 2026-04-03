@@ -1,5 +1,4 @@
 "use client";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -7,71 +6,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-
+import { Moon, Sun } from "lucide-react";
 import VornLight from "../../public/vorn_dark.svg";
 import VornDark from "../../public/vorn_light.svg";
-import AuthBackgroundShape from "./AuthBackground";
-import LoginForm from "./Login-form";
-import Image from "next/image";
+import AuthBackgroundShape from "@/components/auth-backgroundShape";
+import TwoFactorAuthenticationForm from "@/components/Two-factor-auth-form";
+import { useTheme } from "next-themes";
 import Link from "next/link";
+import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Button } from "./ui/button";
 
-function IsAdminLogging() {
-  const [isMounted, setIsMounted] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    // Check if the current hostname starts with 'admin.'
-    setIsAdmin(window.location.hostname.startsWith("admin."));
-  }, []);
-
-  // Don't render anything until we know the environment to avoid flashing
-  if (!isMounted) return null;
-
-  // Only show the signup link if NOT on the admin subdomain
-  if (isAdmin) return null;
-
-  return (
-    <>
-      <p className="text-muted-foreground text-center">
-        New on our platform?{" "}
-        <a href="/signup" className="text-card-foreground hover:underline">
-          Create an account
-        </a>
-      </p>
-      <div className="flex items-center gap-4">
-        <Separator className="flex-1" />
-        <p>or</p>
-        <Separator className="flex-1" />
-      </div>
-
-      <Button variant="ghost" className="w-full" asChild>
-        <a href="#">Log in with google</a>
-      </Button>
-    </>
-  );
-}
-
-const Login = () => {
+const TwoFactorAuthentication = () => {
   const { setTheme } = useTheme();
-
   return (
     <div className="relative flex h-auto min-h-screen items-center justify-center overflow-x-hidden px-4 py-10 sm:px-6 lg:px-8">
       <div className="absolute">
         <AuthBackgroundShape />
       </div>
 
-      <Card className="z-1 w-full border-none shadow-md sm:max-w-lg">
+      <Card className="z-1 w-full border-none shadow-md sm:max-w-md">
         <CardHeader className="gap-6">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2 w-fit">
@@ -118,28 +77,24 @@ const Login = () => {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
           <div>
             <CardTitle className="mb-1.5 text-2xl">
-              Login to Shadcn Studio
+              Two Factor Authentication
             </CardTitle>
             <CardDescription className="text-base">
-              Focus on growth by learning faster.
+              Please confirm access to your account by entering the code
+              provided by your authenticator application
             </CardDescription>
           </div>
         </CardHeader>
 
         <CardContent>
-          {/* Login Form */}
-          <div className="space-y-4">
-            <LoginForm />
-
-            <IsAdminLogging />
-          </div>
+          {/* TwoFactorAuthentication Form */}
+          <TwoFactorAuthenticationForm />
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default Login;
+export default TwoFactorAuthentication;

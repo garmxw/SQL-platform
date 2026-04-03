@@ -48,7 +48,7 @@ export const updateLoginHistory = async (id) => {
 // btw im using the col of verification_hash and verification_expires_at as a saving place for the reset token cuz they will be not used
 
 export const find_user_by_token = async (token) => {
-  const query = `SELECT * FROM users WHERE verification_hash = $1 AND verification_expires_at > NOW()`;
+  const query = `SELECT * FROM users WHERE verification_hash = $1 AND verification_expires_at > NOW() AT TIME ZONE 'UTC'`;
   const result = await db.query(query, [token]);
 
   if (result.rows.length === 0) {

@@ -4,16 +4,15 @@
 
 import React from "react";
 import Link from "next/link";
-import { useTheme } from "next-themes";
+
 import { useScroll, motion, useMotionValueEvent } from "motion/react";
 import { Button } from "@/components/ui/button";
 import FaultyTerminal from "./FaultyTerminal";
 import { cn } from "@/lib/utils";
-import { Menu, X, ChevronRight, Moon, Sun, Code2 } from "lucide-react";
+import { Menu, X, ChevronRight } from "lucide-react";
 import Image from "next/image";
 //logo
 import VornLight from "../../public/vorn_dark.svg";
-import VornDark from "../../public/vorn_light.svg";
 
 // ── Font note:
 // Add to your layout.tsx or _document.tsx:
@@ -63,18 +62,12 @@ function HeroHeader() {
                 aria-label="Vorn home"
               >
                 <Image
-                  src={VornDark}
-                  alt="Vorn logo"
-                  width={30}
-                  height={30}
-                  className="w-10 h-auto dark:hidden"
-                />
-                <Image
                   src={VornLight}
                   alt="Vorn logo"
                   width={30}
                   height={30}
                   className="w-10 h-auto hidden dark:block"
+                  priority
                 />
                 <span className="text-lg font-extrabold inline-block transform scale-x-140 origin-left">
                   Vorn

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { EyeIcon, EyeOffIcon } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 
 const LoginForm = () => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const router = useRouter(); // Initialize router
+  const [isLoading, setIsLoading] = useState(false);
 
   // Login method selector
   const [loginMethod, setLoginMethod] = useState<"email" | "username">("email");
@@ -92,7 +94,7 @@ const LoginForm = () => {
   };
 
   // Form submission
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const validationErrors = validateForm();
@@ -104,14 +106,60 @@ const LoginForm = () => {
         identifier: formData.identifier,
         rememberMe: formData.rememberMe,
       });
-      // TODO: Add your actual login API call here
-      // Example: await loginUser({ method: loginMethod, ...formData });
+      setIsLoading(true);
+      setErrors({});
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      try {
+        const response = await fetch("/auth/login", {
+          // ← CHANGED: relative path (no apiUrl)
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include", // ← ADD this (important for cookies)
+          body: JSON.stringify({
+            method: loginMethod,
+            identifier: formData.identifier,
+            password: formData.password,
+            rememberMe: formData.rememberMe,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.status === "failed") {
+          setErrors({ password: data.message });
+          return;
+        }
+
+        if (!response.ok) {
+          setErrors({ general: data.message || "Login failed" });
+        } else {
+          const hostname = window.location.hostname;
+          console.log("Current Hostname:", hostname);
+
+          const redirectPath = window.location.hostname.startsWith("admin.")
+            ? "/dashboard"
+            : "/home";
+
+          // You can keep router.push (soft navigation works now)
+          router.push(redirectPath);
+          router.refresh();
+
+          console.log(`Login successful! Redirecting to ${redirectPath}`);
+        }
+      } catch (err) {
+        setErrors({ general: "An unexpected error occurred" });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
   // Google login handler (demo)
   const handleGoogleLogin = () => {
-    console.log("🔵 Google login triggered");
+    console.log("Google login triggered");
     // TODO: Add your Google OAuth flow here (e.g. NextAuth, Clerk, Supabase, etc.)
   };
 
@@ -205,7 +253,7 @@ const LoginForm = () => {
         </div>
 
         <a
-          href="#"
+          href="/forgot-password"
           className="text-sm text-primary hover:underline font-medium"
         >
           Forgot password?

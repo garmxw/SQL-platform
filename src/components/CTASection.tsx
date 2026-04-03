@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { GradualBlur } from "@/components/GradualBlur";
 import { Badge } from "@/components/ui/badge";
-import { Code2, ChevronRight, Github, Twitter } from "lucide-react";
+import { ChevronRight, Github, Twitter } from "lucide-react";
+import Image from "next/image";
+import VornLight from "../../public/vorn_dark.svg";
 
 export function CTASection() {
   return (
@@ -102,11 +104,15 @@ export function FooterSection() {
           {/* Brand column - now includes copyright directly below GitHub/Twitter icons */}
           <div className="lg:w-56 shrink-0">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <Code2 className="w-5 h-5" />
-              <span
-                className="text-lg font-bold tracking-tight"
-                style={{ fontFamily: "'Sora','Syne',sans-serif" }}
-              >
+              <Image
+                src={VornLight}
+                alt="Vorn logo"
+                width={5}
+                height={5}
+                className="w-10 h-auto hidden dark:block"
+                priority
+              />
+              <span className="text-lg font-extrabold inline-block transform scale-x-140 origin-left ">
                 Vorn
               </span>
             </Link>

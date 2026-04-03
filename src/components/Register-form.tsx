@@ -8,11 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
 
 const RegisterForm = () => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
     useState(false);
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -184,15 +187,66 @@ const RegisterForm = () => {
   };
 
   // Form submission with validation
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     const validationErrors = validateForm();
+
+    // Extra client-side check for the checkbox
+    if (!formData.agree) {
+      validationErrors.agree = "You must agree to the terms";
+    }
+
     setErrors(validationErrors);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
     if (Object.keys(validationErrors).length === 0) {
-      console.log("Registration successful!", formData);
-      // TODO: Add your actual registration API call here
+      setIsLoading(true);
+      try {
+        const response = await fetch(`${apiUrl}/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+            confirmPassword: formData.confirmPassword,
+            agree: formData.agree,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          // 1. Check for "user already exists" safely
+          if (data.message && data.message.includes("exists")) {
+            data.message.toLowerCase().includes("email")
+              ? setErrors({ email: data.message })
+              : setErrors({ username: data.message });
+          }
+          // 2. Check for validation errors
+          else if (data.errors && data.errors.length > 0) {
+            const error = data.errors[0];
+
+            setErrors({ [error.field]: error.message });
+          }
+          // 3. Fallback for any other error
+          else {
+            setErrors({ form: data.message || "An unexpected error occurred" });
+          }
+
+          return;
+        }
+        // Success! Redirect to verification
+        router.push(
+          `/verify-email?email=${encodeURIComponent(formData.email)}`,
+        );
+      } catch (err) {
+        setErrors({
+          form: "Registration failed. Please check your connection.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
