@@ -19,3 +19,11 @@ ALTER TABLE users
 ADD COLUMN current_streak INT DEFAULT 0,
 ADD COLUMN longest_streak INT DEFAULT 0,
 ADD COLUMN last_solved_date DATE;
+
+ALTER TABLE users ADD COLUMN avatar_url TEXT,
+  ADD COLUMN display_name VARCHAR(25) CHECK (char_length(display_name) >= 3),
+  ADD COLUMN bio VARCHAR(200),
+  ADD COLUMN location VARCHAR(100),
+  ADD COLUMN github_name VARCHAR(39),   
+  ADD COLUMN twitter_name VARCHAR(15),  
+  ADD COLUMN portfolio_url TEXT;     

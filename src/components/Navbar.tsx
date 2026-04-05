@@ -9,8 +9,8 @@ import {
   User,
   Users,
   Loader2,
+  Monitor,
 } from "lucide-react";
-import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -35,34 +36,70 @@ import {
 
 import { SidebarTrigger } from "./ui/sidebar";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { DynamicBreadcrumbs } from "./DynamicBreadcrumbs";
+import { Separator } from "./ui/separator";
 
 const Navbar = () => {
   const { setTheme } = useTheme();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const [userData, setUserData] = useState({
+    avatar_url: "",
+    display_name: "",
+  });
+
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      try {
+        const res = await fetch("/api/profile/get-UserAvatar", {
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (res.ok) {
+          const result = await res.json();
+          setUserData({
+            avatar_url: result.data?.avatar_url || "",
+            display_name: result.data?.display_name || "",
+          });
+        }
+      } catch (error) {
+        console.error("HTTP Request Error:", error);
+      }
+    };
+
+    // 1. Initial fetch
+    fetchAvatar();
+
+    // 2. Listen for the custom event
+    window.addEventListener("profileUpdate", fetchAvatar);
+
+    // 3. Cleanup listener on unmount
+    return () => window.removeEventListener("profileUpdate", fetchAvatar);
+  }, []);
+
+  const getInitials = (name: string) => {
+    if (!name) return "??";
+    return name.trim().substring(0, 2).toUpperCase();
+  };
 
   const handleLogout = async () => {
     setIsLoading(true);
     try {
       const response = await fetch("/auth/logout", {
-        // ← CHANGED: relative path
         method: "POST",
-        credentials: "include", // already good
+        credentials: "include",
       });
 
       if (!response.ok) throw new Error("Could not reach the server.");
 
       toast.success("Successfully logged out");
-
-      // Redirect logic (already correct)
       const isAdmin = window.location.hostname.startsWith("admin.");
       const redirectPath = isAdmin ? "/login" : "/";
 
-      // Optional: hard redirect to be 100% sure cookie is cleared
-      // window.location.href = redirectPath;
-      router.push(redirectPath); // you can keep this if you prefer soft nav
+      router.push(redirectPath);
       router.refresh();
     } catch (error) {
       toast.error("Logout failed. Please try again.");
@@ -73,15 +110,53 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="flex p-4 items-center justify-between">
-      {/* LEFT */}
-      <SidebarTrigger variant={"ghost"} size={"icon-lg"} />
+    <nav className="flex px-4 py-3 items-center justify-between border-b bg-background/60 backdrop-blur-md sticky top-0 z-50">
+      {/* LEFT SIDE - Now properly responsive */}
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        {/* Sidebar trigger + separator group (never shrinks) */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <SidebarTrigger variant="ghost" size="icon" className="-ml-1" />
+          <Separator
+            orientation="vertical"
+            className="h-8" /* Fixed height + removed mr-2 for cleaner spacing */
+          />
+        </div>
 
-      {/* RIGHT */}
-      <div className="flex items-center gap-4">
-        {/*Link*/}
-        <Link href={"/"}>Dashboard</Link>
-        {/*theme menu*/}
+        {/* Breadcrumbs - now constrained so they shrink instead of breaking layout */}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <DynamicBreadcrumbs />
+        </div>
+      </div>
+
+      {/* RIGHT SIDE - Always visible, never shrinks */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* THEME TOGGLE MENU */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full cursor-pointer"
+            >
+              <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">Toggle theme</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setTheme("light")}>
+              <Sun className="mr-2 h-4 w-4" /> Light
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme("dark")}>
+              <Moon className="mr-2 h-4 w-4" /> Dark
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setTheme("system")}>
+              <Monitor className="mr-2 h-4 w-4" /> System
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* USER PROFILE MENU */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -91,14 +166,18 @@ const Navbar = () => {
             >
               <Avatar>
                 <AvatarImage
-                  src="https://cdn.jsdelivr.net/gh/alohe/avatars/png/memo_13.png"
-                  alt="avatar"
+                  src={userData.avatar_url}
+                  alt={userData.display_name}
                 />
-                <AvatarFallback>AD</AvatarFallback>
+                <AvatarFallback className="bg-primary/10">
+                  {getInitials(userData.display_name)}
+                </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-40" sideOffset={10}>
+          <DropdownMenuContent className="w-56" align="end" sideOffset={10}>
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem className="cursor-pointer">
                 <User className="h-[1.2rem] w-[1.2rem] mr-2" />
@@ -114,30 +193,25 @@ const Navbar = () => {
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              {/* onSelect with preventDefault keeps the UI from glitching before the dialog opens */}
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={(e) => {
-                  e.preventDefault();
-                  setShowLogoutDialog(true);
-                }}
-                className="cursor-pointer"
-              >
-                <LogOut className="h-[1.2rem] w-[1.2rem] mr-2" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={(e) => {
+                e.preventDefault();
+                setShowLogoutDialog(true);
+              }}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <LogOut className="h-[1.2rem] w-[1.2rem] mr-2" />
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Confirmation Dialog */}
+        {/* LOGOUT DIALOG */}
         <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-          <AlertDialogContent size="sm">
+          <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>
-                Are you sure you want to log out?
-              </AlertDialogTitle>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
                 Your active session will be ended. You will need to log back in
                 to access your data.

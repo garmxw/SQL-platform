@@ -22,8 +22,8 @@ export const findUserBy_email_Or_username = async (email, username) => {
 };
 
 export const create_user = async (username, email, hashedPassword) => {
-  const query = `INSERT INTO users (username, email, password_hash)
-       VALUES ($1, $2, $3)
+  const query = `INSERT INTO users (username, display_name, email, password_hash)
+       VALUES ($1, $1 , $2, $3)
        RETURNING id, username, email, user_role, created_at`;
   const result = await db.query(query, [username, email, hashedPassword]);
   return result;
@@ -40,8 +40,24 @@ export const markUserAsVerified = async (userId) => {
 };
 
 export const updateLoginHistory = async (id) => {
-  const query = `UPDATE users SET last_login = CURRENT_TIMESTAMP 
-  WHERE id = $1;`;
+  const query = `
+    UPDATE users 
+    SET 
+      login_streak = CASE 
+        -- 1. Missed a day: Reset to 1
+        WHEN last_login < CURRENT_DATE - INTERVAL '1 day' THEN 1
+        
+        -- 2. New calendar day: Increment
+        WHEN last_login < CURRENT_DATE THEN login_streak + 1
+        
+        -- 3. Same calendar day: Stay the same
+        ELSE login_streak
+      END,
+      -- This updates the timestamp to RIGHT NOW
+      last_login = CURRENT_TIMESTAMP
+    WHERE id = $1;
+  `;
+
   await db.query(query, [id]);
 };
 

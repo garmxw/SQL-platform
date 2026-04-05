@@ -20,7 +20,7 @@ import adminPanelRouter from "./routes/adminPanelRouter.js";
 import systemRouter from "./routes/systemeRouter.js";
 import historyRouter from "./routes/history.js";
 import leaderboardRouter from "./routes/leaderboard.js";
-
+import profileRouter from "./routes/profileRouter.js";
 dotenv.config();
 
 const dev = process.env.NODE_ENV !== "production";
@@ -86,8 +86,9 @@ nextApp.prepare().then(() => {
   server.use("/api/xp", xpRouter);
   server.use("/api/history", historyRouter);
   server.use("/api/system", systemRouter);
-  server.use("/leaderboard", leaderboardRouter);
+  server.use("/api/leaderboard", leaderboardRouter);
   server.use("/api/admin", adminSubdomainCheck, adminPanelRouter);
+  server.use("/api/profile", profileRouter);
   server.get("/", (req, res) => {
     return handle(req, res);
   });
