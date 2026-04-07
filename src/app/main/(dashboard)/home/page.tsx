@@ -479,7 +479,7 @@ function renderMarkdown(md: string): string {
     .replace(
       /```(\w*)\n?([\s\S]*?)```/g,
       (_, lang, code) =>
-        `<pre class="bg-muted rounded-md px-4 py-3 text-xs font-mono overflow-x-auto my-3"><code>${escHtml(code.trim())}</code></pre>`,
+        `<pre class="bg-muted rounded-md px-4 py-3 text-xs overflow-x-auto my-3"><code>${escHtml(code.trim())}</code></pre>`,
     )
     .replace(
       /^### (.+)$/gm,
@@ -500,7 +500,7 @@ function renderMarkdown(md: string): string {
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(
       /`([^`]+)`/g,
-      '<code class="bg-muted rounded px-1 py-0.5 text-[11px] font-mono">$1</code>',
+      '<code class="bg-muted rounded px-1 py-0.5 text-[11px] ">$1</code>',
     )
     .replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
@@ -1483,7 +1483,7 @@ function EditProfileDialog({
                 {readmeTab === "edit" ? (
                   <textarea
                     className={cn(
-                      "flex-1 w-full rounded-md border border-input bg-transparent px-3 py-2.5 text-xs font-mono shadow-sm",
+                      "flex-1 w-full rounded-md border border-input bg-transparent px-3 py-2.5 text-xs  shadow-sm",
                       "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                       "resize-none overflow-y-auto leading-relaxed",
                     )}
@@ -2076,7 +2076,7 @@ export default function Dashboard() {
                             <TableCell>
                               <Badge
                                 variant="outline"
-                                className="text-[10px] font-mono font-normal bg-muted/20 border-border/50"
+                                className="text-[10px]  font-normal bg-muted/20 border-border/50"
                               >
                                 {p.category}
                               </Badge>
@@ -2176,7 +2176,7 @@ export default function Dashboard() {
                                   <span className="text-xs">{s.status}</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-xs font-mono text-muted-foreground">
+                              <TableCell className="text-xs text-muted-foreground">
                                 {s.runtime}
                               </TableCell>
                               <TableCell className="text-xs text-muted-foreground text-right pr-6">

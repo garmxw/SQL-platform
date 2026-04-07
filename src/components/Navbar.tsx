@@ -39,6 +39,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DynamicBreadcrumbs } from "./DynamicBreadcrumbs";
 import { Separator } from "./ui/separator";
+import Link from "next/link";
 
 const Navbar = () => {
   const { setTheme } = useTheme();
@@ -49,6 +50,10 @@ const Navbar = () => {
     avatar_url: "",
     display_name: "",
   });
+  const isAdmin =
+    typeof window !== "undefined" &&
+    window.location.hostname.startsWith("admin.");
+  const profilePath = isAdmin ? "/dashboard/profile" : "/home";
 
   useEffect(() => {
     const fetchAvatar = async () => {
@@ -180,8 +185,10 @@ const Navbar = () => {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem className="cursor-pointer">
-                <User className="h-[1.2rem] w-[1.2rem] mr-2" />
-                Profile
+                <Link href={profilePath} className="flex w-full items-center">
+                  <User className="h-[1.2rem] w-[1.2rem] mr-2" />
+                  Profile
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer">
                 <Users className="h-[1.2rem] w-[1.2rem] mr-2" />

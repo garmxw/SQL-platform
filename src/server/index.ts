@@ -16,7 +16,7 @@ import usersRouter from "./routes/usersRouter.js";
 import badgesRouter from "./routes/badgesRouter.js";
 import progressRouter from "./routes/progressRouter.js";
 import xpRouter from "./routes/xpRouter.js";
-import adminPanelRouter from "./routes/adminPanelRouter.js";
+import adminRouter from "./routes/adminRouter.js";
 import systemRouter from "./routes/systemeRouter.js";
 import historyRouter from "./routes/history.js";
 import leaderboardRouter from "./routes/leaderboard.js";
@@ -34,11 +34,11 @@ const adminSubdomainCheck = (
   res: express.Response,
   next: express.NextFunction,
 ) => {
-  const host = req.get("hsot") || "";
+  const host = req.get("host") || "";
   if (host.startsWith("admin.")) {
     return next();
   }
-  res.status(403).send("Forbiddem: Admins only.");
+  res.status(403).send("Forbidden: Admins only.");
 };
 
 // Test DB Connection
@@ -87,7 +87,7 @@ nextApp.prepare().then(() => {
   server.use("/api/history", historyRouter);
   server.use("/api/system", systemRouter);
   server.use("/api/leaderboard", leaderboardRouter);
-  server.use("/api/admin", adminSubdomainCheck, adminPanelRouter);
+  server.use("/api/admin", adminSubdomainCheck, adminRouter);
   server.use("/api/profile", profileRouter);
   server.get("/", (req, res) => {
     return handle(req, res);
