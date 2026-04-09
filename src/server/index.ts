@@ -9,18 +9,12 @@ import dotenv from "dotenv";
 import authRouter from "./routes/authRouter.js";
 import executionRouter from "./routes/executionRouter.js";
 import submissionsRouter from "./routes/submissionsRouter.js";
-import trackRouter from "./routes/trackRouter.js";
 import lessonsRouter from "./routes/lessonsRouter.js";
 import problemsRouter from "./routes/problemsRouter.js";
-import usersRouter from "./routes/usersRouter.js";
-import badgesRouter from "./routes/badgesRouter.js";
-import progressRouter from "./routes/progressRouter.js";
-import xpRouter from "./routes/xpRouter.js";
 import adminRouter from "./routes/adminRouter.js";
-import systemRouter from "./routes/systemeRouter.js";
-import historyRouter from "./routes/history.js";
 import leaderboardRouter from "./routes/leaderboard.js";
 import profileRouter from "./routes/profileRouter.js";
+import adminContentRouter from "./routes/adminContentRouter.js";
 dotenv.config();
 
 const dev = process.env.NODE_ENV !== "production";
@@ -77,17 +71,13 @@ nextApp.prepare().then(() => {
   server.use("/auth", authRouter);
   server.use("/api", executionRouter);
   server.use("/api", submissionsRouter);
-  server.use("/api/tracks", trackRouter);
+
   server.use("/api/lessons", lessonsRouter);
   server.use("/api/problems", problemsRouter);
-  server.use("/api/users", usersRouter);
-  server.use("/api/progress", progressRouter);
-  server.use("/api/badges", badgesRouter);
-  server.use("/api/xp", xpRouter);
-  server.use("/api/history", historyRouter);
-  server.use("/api/system", systemRouter);
+
   server.use("/api/leaderboard", leaderboardRouter);
   server.use("/api/admin", adminSubdomainCheck, adminRouter);
+  server.use("/api/content", adminSubdomainCheck, adminContentRouter);
   server.use("/api/profile", profileRouter);
   server.get("/", (req, res) => {
     return handle(req, res);

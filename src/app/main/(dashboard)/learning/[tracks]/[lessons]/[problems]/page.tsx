@@ -44,7 +44,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import type { editor } from "monaco-editor";
 
-// ── Imports from your MonacoEditor component ──────────────────────────────────
+//  Imports from your MonacoEditor component
 
 import {
   MonacoEditor,
@@ -90,9 +90,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  TYPES
-// ═══════════════════════════════════════════════════════════════════════════════
 
 type RunStatus = "idle" | "running" | "accepted" | "wrong" | "error" | "tle";
 type DrawTool = "pen" | "line" | "rect" | "circle" | "eraser" | "text";
@@ -117,9 +115,7 @@ interface CanvasStroke {
   text?: string;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  MOCK DATA
-// ═══════════════════════════════════════════════════════════════════════════════
 
 const PROBLEM = {
   id: 185,
@@ -214,9 +210,7 @@ function XPBar({ xp, delta }: { xp: number; delta: number | null }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  CONFETTI
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function fireSideCannons() {
   const end = Date.now() + 3000;
@@ -244,9 +238,7 @@ function fireSideCannons() {
   frame();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  WRONG OVERLAY
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function WrongOverlay({ onDone }: { onDone: () => void }) {
   useEffect(() => {
@@ -266,9 +258,7 @@ function WrongOverlay({ onDone }: { onDone: () => void }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  TIMER
-// ═══════════════════════════════════════════════════════════════════════════════
 
 type TimerMode = "stopwatch" | "countdown";
 interface TimerState {
@@ -497,9 +487,7 @@ function TimerWidget({ timer }: { timer: ReturnType<typeof useTimer> }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  CANVAS NOTES
-// ═══════════════════════════════════════════════════════════════════════════════
 
 const PALETTE = [
   "#000000",
@@ -860,9 +848,7 @@ function CanvasNotes() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  SIMULATE RUN
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function simulateRun(sql: string): Promise<RunResult> {
   return new Promise((resolve) => {
@@ -893,9 +879,7 @@ function simulateRun(sql: string): Promise<RunResult> {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  HELPERS
-// ═══════════════════════════════════════════════════════════════════════════════
 
 function DifficultyBadge({
   difficulty,
@@ -970,9 +954,7 @@ function DraggableDivider({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  CUSTOM TABS
-// ═══════════════════════════════════════════════════════════════════════════════
 
 interface TabsCtxType {
   active: string;
@@ -1078,8 +1060,8 @@ function Section({
   );
 }
 
-// ── STABLE EDITOR PANEL  ─────────────────────────────────────
-// ── STABLE EDITOR PANEL ─────────────────────────────────────────────────────
+//  STABLE EDITOR PANEL  ─
+//  STABLE EDITOR PANEL ─
 interface EditorPanelProps {
   sql: string;
   onSqlChange: (value: string) => void;
@@ -1195,9 +1177,7 @@ const EditorPanel = React.memo(function EditorPanel({
   );
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
 //  MAIN PAGE
-// ═══════════════════════════════════════════════════════════════════════════════
 
 export default function LessonEditorPage() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1311,7 +1291,7 @@ export default function LessonEditorPage() {
   const errorCount = markers.filter((m) => m.severity === 8).length;
   const warnCount = markers.filter((m) => m.severity === 4).length;
 
-  // ── LESSON PANEL ────────────────────────────────────────────────────────────
+  //  LESSON PANEL
 
   function LessonPanel() {
     return (
@@ -1582,7 +1562,7 @@ export default function LessonEditorPage() {
     );
   }
 
-  // ── OUTPUT PANEL ─────────────────────────────────────────────────────────────
+  //  OUTPUT PANEL ─
 
   function OutputPanel() {
     return (
@@ -1733,7 +1713,7 @@ export default function LessonEditorPage() {
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
       {showWrong && <WrongOverlay onDone={() => setShowWrong(false)} />}
 
-      {/* ── Top Nav ── */}
+      {/*  Top Nav  */}
       <header className="h-12 border-b border-border flex items-center px-3 shrink-0 bg-background z-20 gap-2">
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="flex items-center gap-1.5 pr-3 border-r border-border">
@@ -1915,7 +1895,7 @@ export default function LessonEditorPage() {
         </div>
       </header>
 
-      {/* ── Mobile tab bar ── */}
+      {/*  Mobile tab bar  */}
       <div className="md:hidden flex border-b border-border shrink-0 bg-background">
         {(["lesson", "editor", "output", "notes"] as const).map((t) => (
           <button
@@ -1933,7 +1913,7 @@ export default function LessonEditorPage() {
         ))}
       </div>
 
-      {/* ── Desktop layout ── */}
+      {/*  Desktop layout  */}
       <div
         ref={containerRef}
         className="hidden md:flex flex-1 overflow-hidden p-2 gap-0"
@@ -2022,7 +2002,7 @@ export default function LessonEditorPage() {
         </div>
       </div>
 
-      {/* ── Mobile content ── */}
+      {/*  Mobile content  */}
       <div className="md:hidden flex-1 overflow-hidden p-2">
         {mobileTab === "lesson" && (
           <div className="h-full">
@@ -2066,7 +2046,7 @@ export default function LessonEditorPage() {
         )}
       </div>
 
-      {/* ── Status bar ── */}
+      {/*  Status bar  */}
       <div className="h-6 border-t border-border flex items-center justify-between px-3 shrink-0 bg-background text-[11px] text-muted-foreground">
         <div className="flex items-center gap-3">
           <span>{DIALECTS.find((d) => d.value === dialect)?.label}</span>

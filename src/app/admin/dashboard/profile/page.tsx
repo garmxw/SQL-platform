@@ -1196,14 +1196,14 @@ const quickActions = [
     label: "Manage Users",
     description: "View, filter, and manage accounts",
     icon: Users,
-    href: "/admin/users",
+    href: "/dashboard/users",
     disabled: false,
   },
   {
-    label: "Problem Editor",
+    label: "Content Editor",
     description: "Create or edit SQL problems",
     icon: Code2,
-    href: "/admin/problems",
+    href: "/dashboard/content",
     disabled: false,
   },
   {
