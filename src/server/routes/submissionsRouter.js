@@ -4,6 +4,6 @@ import { authenticateToken } from "../middleware/authMiddleware.js";
 
 const router = Router();
 
-router.post("/submit", authenticateToken, submitSolution);
+router.post("/submit2", authenticateToken, submitSolution);
 
 export default router;

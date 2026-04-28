@@ -53,7 +53,9 @@ export async function proxy(req: NextRequest) {
 
   // 2. MAIN DOMAIN PROTECTION (Regular Users)
   const isProtectedRoute =
-    url.pathname.startsWith("/dashboard") || url.pathname.startsWith("/home");
+    url.pathname.startsWith("/dashboard") ||
+    url.pathname.startsWith("/home") ||
+    url.pathname.startsWith("/learning");
 
   if (isProtectedRoute && !token) {
     return NextResponse.redirect(new URL("/login", req.url));

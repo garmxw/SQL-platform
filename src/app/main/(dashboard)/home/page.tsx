@@ -84,18 +84,35 @@ import {
   FileText,
   Eye,
   Edit3,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-// HELPERS
+// ─── HELPERS ────────────────────────────────────────────────────────────────
 
 function getInitials(name: string): string {
   const t = name?.trim() || "";
   return t ? t.slice(0, 2).toUpperCase() : "??";
 }
 
-// IMAGE COMPRESSION
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
+// ─── IMAGE COMPRESSION ──────────────────────────────────────────────────────
+
 async function compressImageFile(
   file: File,
   opts: { maxDim?: number; targetKB?: number } = {},
@@ -163,7 +180,8 @@ async function compressImageFile(
   });
 }
 
-// CLOUDINARY UPLOAD
+// ─── CLOUDINARY UPLOAD ──────────────────────────────────────────────────────
+
 interface CloudSig {
   signature: string;
   timestamp: number;
@@ -194,11 +212,11 @@ async function uploadToCloudinary(file: File, sig: CloudSig): Promise<string> {
     { method: "POST", body: fd },
   );
   if (!res.ok) throw new Error("Cloudinary upload failed");
-  const data = await res.json();
-  return data.secure_url as string;
+  return (await res.json()).secure_url as string;
 }
 
-// IMAGE CROP MODAL
+// ─── CROP MODAL (unchanged) ─────────────────────────────────────────────────
+
 interface CropModalProps {
   open: boolean;
   onClose: () => void;
@@ -322,7 +340,6 @@ function CropModal({
     [dragging],
   );
   const onMouseUp = () => setDragging(false);
-
   const touchStart = useRef({ tx: 0, ty: 0, ox: 0, oy: 0 });
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -340,7 +357,6 @@ function CropModal({
       y: touchStart.current.oy + (t.clientY - touchStart.current.ty),
     });
   };
-
   const zoom = (delta: number) =>
     setScale((s) => Math.min(5, Math.max(0.2, s + delta)));
   const reset = () => {
@@ -377,8 +393,7 @@ function CropModal({
           originalFileName.replace(/\.[^.]+$/, ".webp"),
           { type: "image/webp" },
         );
-        const previewUrl = URL.createObjectURL(blob);
-        onConfirm(croppedFile, previewUrl);
+        onConfirm(croppedFile, URL.createObjectURL(blob));
       },
       "image/webp",
       0.92,
@@ -473,7 +488,8 @@ function CropModal({
   );
 }
 
-// MINIMAL MARKDOWN RENDERER
+// ─── MARKDOWN RENDERER (unchanged) ──────────────────────────────────────────
+
 function renderMarkdown(md: string): string {
   let html = md
     .replace(
@@ -500,7 +516,7 @@ function renderMarkdown(md: string): string {
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(
       /`([^`]+)`/g,
-      '<code class="bg-muted rounded px-1 py-0.5 text-[11px] ">$1</code>',
+      '<code class="bg-muted rounded px-1 py-0.5 text-[11px]">$1</code>',
     )
     .replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
@@ -523,7 +539,8 @@ function escHtml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// AUTO-GROW TEXTAREA
+// ─── AUTO-GROW TEXTAREA (unchanged) ─────────────────────────────────────────
+
 function AutoGrowTextarea({
   value,
   onChange,
@@ -555,9 +572,7 @@ function AutoGrowTextarea({
       maxLength={maxLength}
       rows={minRows}
       className={cn(
-        "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm",
-        "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        "disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden resize-none break-words",
+        "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 overflow-hidden resize-none break-words",
         className,
       )}
       style={{ minHeight: `${minRows * 24}px` }}
@@ -565,7 +580,8 @@ function AutoGrowTextarea({
   );
 }
 
-// EMPTY PLACEHOLDER
+// ─── EMPTY PLACEHOLDER ───────────────────────────────────────────────────────
+
 function EmptyPlaceholder({
   icon,
   title,
@@ -588,22 +604,37 @@ function EmptyPlaceholder({
   );
 }
 
-// HEATMAP + CHARTS + MOCK DATA (unchanged)
-function generateHeatmapData() {
-  const data: { date: string; count: number }[] = [];
-  const today = new Date();
-  for (let i = 364; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const rand = Math.random();
-    let count = 0;
-    if (rand > 0.55) count = Math.floor(Math.random() * 3) + 1;
-    if (rand > 0.75) count = Math.floor(Math.random() * 4) + 3;
-    if (rand > 0.9) count = Math.floor(Math.random() * 4) + 6;
-    data.push({ date: d.toISOString().split("T")[0], count });
-  }
-  return data;
+// ─── ERROR STATE ─────────────────────────────────────────────────────────────
+
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-destructive/10">
+        <AlertCircle className="w-5 h-5 text-destructive" />
+      </div>
+      <p className="text-sm font-medium text-muted-foreground">{message}</p>
+      {onRetry && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs h-8"
+          onClick={onRetry}
+        >
+          Retry
+        </Button>
+      )}
+    </div>
+  );
 }
+
+// ─── HEATMAP ────────────────────────────────────────────────────────────────
+
 function getIntensity(n: number) {
   if (n === 0) return "bg-muted";
   if (n <= 2) return "bg-[var(--color-heatmap-1)]";
@@ -611,14 +642,41 @@ function getIntensity(n: number) {
   if (n <= 8) return "bg-[var(--color-heatmap-3)]";
   return "bg-[var(--color-heatmap-4)]";
 }
-function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
-  const [data, setData] = useState<{ date: string; count: number }[]>([]);
+
+function buildFullHeatmap(
+  apiData: { date: string; count: number }[],
+): { date: string; count: number }[] {
+  const countMap = new Map(apiData.map((d) => [d.date, d.count]));
+  const result: { date: string; count: number }[] = [];
+  const today = new Date();
+  for (let i = 364; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = d.toISOString().split("T")[0];
+    result.push({ date: key, count: countMap.get(key) ?? 0 });
+  }
+  return result;
+}
+
+function SubmissionHeatmap({
+  heatmapData,
+  loading,
+  error,
+}: {
+  heatmapData: { date: string; count: number }[];
+  loading: boolean;
+  error: boolean;
+}) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    setData(generateHeatmapData());
     setMounted(true);
   }, []);
-  if (!mounted)
+
+  const data = useMemo(() => buildFullHeatmap(heatmapData), [heatmapData]);
+  const totalActiveDays = data.filter((d) => d.count > 0).length;
+
+  // Always show skeleton until mounted (prevents hydration mismatch) or while loading
+  if (!mounted || loading)
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -629,7 +687,20 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
         </CardContent>
       </Card>
     );
-  if (isEmpty)
+
+  if (error)
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Submission Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorState message="Could not load activity data." />
+        </CardContent>
+      </Card>
+    );
+
+  if (totalActiveDays === 0)
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -647,7 +718,8 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
         </CardContent>
       </Card>
     );
-  const totalSolved = data.reduce((s, d) => s + (d.count > 0 ? 1 : 0), 0);
+
+  // Build week grid
   const weeks: { date: string; count: number }[][] = [];
   let week: { date: string; count: number }[] = [];
   const firstDay = new Date(data[0].date).getDay();
@@ -660,6 +732,7 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
     }
   });
   if (week.length) weeks.push(week);
+
   const MONTHS = [
     "Jan",
     "Feb",
@@ -686,6 +759,7 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
       }
     }
   });
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -693,7 +767,7 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
           <div>
             <CardTitle className="text-base">Submission Activity</CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              {totalSolved} active days in the past year
+              {totalActiveDays} active days in the past year
             </CardDescription>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -717,6 +791,7 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
       <CardContent>
         <div className="w-full overflow-x-auto">
           <div className="min-w-max">
+            {/* Month labels */}
             <div className="flex mb-1 ml-7">
               {weeks.map((_, wi) => {
                 const l = monthLabels.find((m) => m.col === wi);
@@ -731,6 +806,7 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
               })}
             </div>
             <div className="flex gap-0.5">
+              {/* Day-of-week labels */}
               <div className="flex flex-col gap-0.5 mr-1">
                 {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                   <div
@@ -741,6 +817,7 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
                   </div>
                 ))}
               </div>
+              {/* Cells */}
               {weeks.map((w, wi) => (
                 <div key={wi} className="flex flex-col gap-0.5">
                   {w.map((day, di) => {
@@ -773,28 +850,38 @@ function SubmissionHeatmap({ isEmpty }: { isEmpty?: boolean }) {
   );
 }
 
-const radialData = [
-  { name: "Hard", value: 33, fill: "var(--chart-1)" },
-  { name: "Medium", value: 63, fill: "var(--chart-2)" },
-  { name: "Easy", value: 88, fill: "var(--chart-3)" },
-];
+// ─── RADIAL CHART ────────────────────────────────────────────────────────────
+
 const radialConfig = {
   Hard: { label: "Hard" },
   Medium: { label: "Medium" },
   Easy: { label: "Easy" },
 } satisfies ChartConfig;
-const radarData = [
-  { category: "JOINs", score: 88 },
-  { category: "Aggregates", score: 74 },
-  { category: "Window Fn", score: 55 },
-  { category: "Subqueries", score: 80 },
-  { category: "DDL / DML", score: 62 },
-  { category: "Indexes", score: 40 },
-];
-const radarConfig = {
-  score: { label: "Skill Score", color: "var(--chart-2)" },
-} satisfies ChartConfig;
-function SolvedRadialChart({ isEmpty }: { isEmpty?: boolean }) {
+
+const RADIAL_FILL: Record<string, string> = {
+  Easy: "var(--chart-3)",
+  Medium: "var(--chart-2)",
+  Hard: "var(--chart-1)",
+};
+
+function SolvedRadialChart({
+  radialData,
+  loading,
+  error,
+}: {
+  radialData: { name: string; value: number; solved: number; total: number }[];
+  loading: boolean;
+  error: boolean;
+}) {
+  // Only show empty state when we have data back AND all difficulties have 0 total problems
+  const hasData = radialData.length > 0;
+  const isEmpty =
+    !loading && !error && hasData && radialData.every((d) => d.total === 0);
+  const chartData = radialData.map((d) => ({
+    ...d,
+    fill: RADIAL_FILL[d.name] ?? "var(--chart-1)",
+  }));
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -804,7 +891,11 @@ function SolvedRadialChart({ isEmpty }: { isEmpty?: boolean }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isEmpty ? (
+        {loading || !hasData ? (
+          <div className="h-[220px] w-full rounded-md bg-muted/40 animate-pulse" />
+        ) : error ? (
+          <ErrorState message="Could not load chart." />
+        ) : isEmpty ? (
           <EmptyPlaceholder
             icon={<BookOpen className="w-6 h-6 text-muted-foreground/50" />}
             title="No problems solved yet"
@@ -813,7 +904,7 @@ function SolvedRadialChart({ isEmpty }: { isEmpty?: boolean }) {
         ) : (
           <ChartContainer config={radialConfig} className="mx-auto h-[220px]">
             <RadialBarChart
-              data={radialData}
+              data={chartData}
               startAngle={-90}
               endAngle={270}
               innerRadius={28}
@@ -830,7 +921,16 @@ function SolvedRadialChart({ isEmpty }: { isEmpty?: boolean }) {
               <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
               <ChartTooltip
                 cursor={false}
-                content={<ChartTooltipContent nameKey="name" hideLabel />}
+                content={
+                  <ChartTooltipContent
+                    nameKey="name"
+                    hideLabel
+                    formatter={(value, name, item) => [
+                      `${item.payload.solved}/${item.payload.total} (${value}%)`,
+                      name,
+                    ]}
+                  />
+                }
               />
               <ChartLegend
                 verticalAlign="bottom"
@@ -849,7 +949,26 @@ function SolvedRadialChart({ isEmpty }: { isEmpty?: boolean }) {
     </Card>
   );
 }
-function SkillRadarChart({ isEmpty }: { isEmpty?: boolean }) {
+
+// ─── RADAR CHART ─────────────────────────────────────────────────────────────
+
+const radarConfig = {
+  score: { label: "Skill Score", color: "var(--chart-2)" },
+} satisfies ChartConfig;
+
+function SkillRadarChart({
+  radarData,
+  loading,
+  error,
+}: {
+  radarData: { category: string; score: number }[];
+  loading: boolean;
+  error: boolean;
+}) {
+  const hasData = radarData.length > 0;
+  // isEmpty only when fetch is done, no error, and truly no tag data exists
+  const isEmpty = !loading && !error && !hasData;
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -859,7 +978,11 @@ function SkillRadarChart({ isEmpty }: { isEmpty?: boolean }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isEmpty ? (
+        {loading || (!hasData && !isEmpty) ? (
+          <div className="h-[220px] w-full rounded-md bg-muted/40 animate-pulse" />
+        ) : error ? (
+          <ErrorState message="Could not load chart." />
+        ) : isEmpty ? (
           <EmptyPlaceholder
             icon={<Sparkles className="w-6 h-6 text-muted-foreground/50" />}
             title="Skill data not available yet"
@@ -878,7 +1001,12 @@ function SkillRadarChart({ isEmpty }: { isEmpty?: boolean }) {
                 strokeWidth={1.5}
                 dot={{ r: 3, fill: "var(--chart-2)", strokeWidth: 0 }}
               />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent formatter={(v) => [`${v}%`, "Solved"]} />
+                }
+              />
             </RadarChart>
           </ChartContainer>
         )}
@@ -887,120 +1015,27 @@ function SkillRadarChart({ isEmpty }: { isEmpty?: boolean }) {
   );
 }
 
-const recentSubmissions = [
-  {
-    id: 1,
-    title: "Top N Salaries",
-    difficulty: "Medium",
-    status: "Accepted",
-    time: "2h ago",
-    runtime: "120ms",
-  },
-  {
-    id: 2,
-    title: "Second Highest Salary",
-    difficulty: "Easy",
-    status: "Accepted",
-    time: "5h ago",
-    runtime: "80ms",
-  },
-  {
-    id: 3,
-    title: "Department Highest Salary",
-    difficulty: "Medium",
-    status: "Wrong Answer",
-    time: "1d ago",
-    runtime: "—",
-  },
-  {
-    id: 4,
-    title: "Consecutive Numbers",
-    difficulty: "Medium",
-    status: "Accepted",
-    time: "2d ago",
-    runtime: "145ms",
-  },
-  {
-    id: 5,
-    title: "Rank Scores",
-    difficulty: "Medium",
-    status: "Time Limit",
-    time: "3d ago",
-    runtime: "—",
-  },
-  {
-    id: 6,
-    title: "Human Traffic of Stadium",
-    difficulty: "Hard",
-    status: "Accepted",
-    time: "4d ago",
-    runtime: "200ms",
-  },
-];
-const problems = [
-  {
-    id: 1,
-    title: "Employees Earning More Than Managers",
-    difficulty: "Easy",
-    category: "JOIN",
-    solved: true,
-  },
-  {
-    id: 2,
-    title: "Duplicate Emails",
-    difficulty: "Easy",
-    category: "GROUP BY",
-    solved: true,
-  },
-  {
-    id: 3,
-    title: "Rising Temperature",
-    difficulty: "Easy",
-    category: "DATE",
-    solved: false,
-  },
-  {
-    id: 4,
-    title: "Delete Duplicate Emails",
-    difficulty: "Easy",
-    category: "DELETE",
-    solved: false,
-  },
-  {
-    id: 5,
-    title: "Customers Who Never Order",
-    difficulty: "Easy",
-    category: "JOIN",
-    solved: true,
-  },
-  {
-    id: 6,
-    title: "Department Top Three Salaries",
-    difficulty: "Hard",
-    category: "WINDOW",
-    solved: false,
-  },
-];
-const badgeList = [
-  { label: "50 Day Streak", icon: Flame, earned: true },
-  { label: "Speed Solver", icon: Zap, earned: true },
-  { label: "Hard Crusher", icon: Target, earned: false },
-  { label: "Top 10%", icon: TrendingUp, earned: false },
-];
-function StatusIcon({ status }: { status: string }) {
-  if (status === "Accepted")
+// ─── STATUS / DIFFICULTY HELPERS ─────────────────────────────────────────────
+
+function StatusIcon({ isCorrect }: { isCorrect: boolean | null }) {
+  if (isCorrect === true)
     return <CheckCircle2 color="green" className="w-4 h-4 shrink-0" />;
-  if (status === "Wrong Answer")
+  if (isCorrect === false)
     return <XCircle color="red" className="w-4 h-4 shrink-0" />;
   return <Clock color="yellow" className="w-4 h-4 shrink-0" />;
 }
-function DifficultyBadge({ difficulty }: { difficulty: string }) {
-  const v =
-    difficulty === "Easy"
-      ? "outline"
-      : difficulty === "Medium"
-        ? "secondary"
-        : "default";
+
+function statusLabel(isCorrect: boolean | null): string {
+  if (isCorrect === true) return "Accepted";
+  if (isCorrect === false) return "Wrong Answer";
+  return "Pending";
+}
+
+function DifficultyBadge({ difficulty }: { difficulty: string | null }) {
+  if (!difficulty) return null;
+  const d =
+    difficulty.charAt(0).toUpperCase() + difficulty.slice(1).toLowerCase();
+  const v = d === "Easy" ? "outline" : d === "Medium" ? "secondary" : "default";
   return (
     <Badge variant={v} className="text-xs font-normal">
       {difficulty}
@@ -1008,7 +1043,8 @@ function DifficultyBadge({ difficulty }: { difficulty: string }) {
   );
 }
 
-// PROFILE TYPES
+// ─── PROFILE TYPES ───────────────────────────────────────────────────────────
+
 interface ProfileData {
   username: string;
   displayName: string;
@@ -1039,7 +1075,90 @@ const FIELD_MAP: Array<{ formKey: keyof ProfileData; dbKey: string }> = [
   { formKey: "profileReadme", dbKey: "profile_readme" },
 ];
 
-// EDIT PROFILE DIALOG
+// ─── OVERVIEW DATA TYPES ─────────────────────────────────────────────────────
+
+interface OverviewData {
+  stats: {
+    totalSolved: number;
+    totalProblems: number;
+    acceptanceRate: number;
+    xp: number;
+    level: number;
+    currentStreak: number;
+    longestStreak: number;
+    loginStreak: number;
+  };
+  difficultyBreakdown: Record<string, { solved: number; total: number }>;
+  radialData: { name: string; value: number; solved: number; total: number }[];
+  badges: {
+    id: number;
+    name: string;
+    description: string | null;
+    iconUrl: string | null;
+    code: string;
+    rarity: string | null;
+    xpReward: number | null;
+    earned: boolean;
+    earnedAt: string | null;
+  }[];
+  recentSubmissions: {
+    id: number;
+    title: string;
+    difficulty: string | null;
+    isCorrect: boolean | null;
+    executionTimeMs: number | null;
+    createdAt: string;
+    engine: string | null;
+  }[];
+  heatmap: { date: string; count: number }[];
+  radarData: {
+    category: string;
+    score: number;
+    solved: number;
+    total: number;
+  }[];
+}
+
+interface ProblemRow {
+  id: number;
+  title: string;
+  difficulty: string | null;
+  acceptanceRate: number | null;
+  xpReward: number | null;
+  tags: string[];
+  isSolved: boolean;
+  attempts: number;
+  solvedAt: string | null;
+  firstAttemptAt: string | null;
+}
+interface SubmissionRow {
+  id: number;
+  title: string;
+  difficulty: string | null;
+  isCorrect: boolean | null;
+  submittedSql: string;
+  executionTimeMs: number | null;
+  createdAt: string;
+  engine: string | null;
+}
+
+// ─── BADGE ICON MAP ──────────────────────────────────────────────────────────
+// Maps badge codes to icons. Extend as you add more badge types.
+const BADGE_ICON_MAP: Record<string, React.ElementType> = {
+  streak_50: Flame,
+  speed_solver: Zap,
+  hard_crusher: Target,
+  top_10: TrendingUp,
+  first_solve: CheckCircle2,
+  default: Trophy,
+};
+function BadgeIcon({ code, className }: { code: string; className?: string }) {
+  const Icon = BADGE_ICON_MAP[code] ?? BADGE_ICON_MAP.default;
+  return <Icon className={cn("w-4 h-4 shrink-0", className)} />;
+}
+
+// ─── EDIT PROFILE DIALOG (unchanged logic, kept intact) ──────────────────────
+
 function EditProfileDialog({
   open,
   onOpenChange,
@@ -1125,11 +1244,7 @@ function EditProfileDialog({
           [type === "avatar" ? "avatarUrl" : "bannerUrl"]: url,
         }));
         URL.revokeObjectURL(previewUrl);
-
-        if (type === "avatar") {
-          window.dispatchEvent(new Event("profileUpdate"));
-        }
-
+        if (type === "avatar") window.dispatchEvent(new Event("profileUpdate"));
         toast.success(`${type === "avatar" ? "Avatar" : "Banner"} updated`, {
           description: "Your profile image has been updated successfully.",
         });
@@ -1156,19 +1271,15 @@ function EditProfileDialog({
     for (const { formKey, dbKey } of FIELD_MAP) {
       let next = (form[formKey] as string) ?? "";
       const prev = (profile[formKey] as string) ?? "";
-
       if (formKey === "profileReadme") {
-        // Respect the toggle
         if (!showAboutMeOnProfile) next = "";
         if (!next.trim()) {
           payload[dbKey] = null;
           continue;
         }
       }
-
       if (next !== prev) payload[dbKey] = next;
     }
-
     if (!Object.keys(payload).length) {
       onOpenChange(false);
       return;
@@ -1182,25 +1293,17 @@ function EditProfileDialog({
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Update failed");
-
-      // Create final profile object that respects the toggle
       const finalProfile = { ...form };
       if (!showAboutMeOnProfile) finalProfile.profileReadme = "";
-
       onSave(finalProfile);
       onOpenChange(false);
-
-      //Trigger navbar refresh for avatar + display name
       window.dispatchEvent(new Event("profileUpdate"));
-
       toast.success("Profile updated", {
         description: "Your changes have been saved successfully.",
       });
     } catch (err) {
       console.error(err);
-      toast.error("Error", {
-        description: "Failed to save profile changes.",
-      });
+      toast.error("Error", { description: "Failed to save profile changes." });
     } finally {
       setSaving(false);
     }
@@ -1231,7 +1334,6 @@ function EditProfileDialog({
           <DialogHeader className="px-6 pt-5 pb-3 shrink-0">
             <DialogTitle className="text-base">Edit Profile</DialogTitle>
           </DialogHeader>
-          {/* Tab bar */}
           <div className="px-6 shrink-0">
             <div className="flex gap-1 border-b border-border pb-0">
               {(["images", "info", "readme"] as const).map((t) => (
@@ -1252,7 +1354,6 @@ function EditProfileDialog({
               ))}
             </div>
           </div>
-
           <div className="flex-1 overflow-hidden">
             {dialogTab === "images" && (
               <div className="h-full flex flex-col gap-5 px-6 py-5 overflow-y-auto">
@@ -1351,7 +1452,6 @@ function EditProfileDialog({
                 </div>
               </div>
             )}
-
             {dialogTab === "info" && (
               <div className="h-full flex flex-col gap-4 px-6 py-5 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-3">
@@ -1436,7 +1536,6 @@ function EditProfileDialog({
                 </div>
               </div>
             )}
-
             {dialogTab === "readme" && (
               <div className="h-full flex flex-col px-6 py-4 gap-3 overflow-hidden">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1469,7 +1568,6 @@ function EditProfileDialog({
                     </button>
                   </div>
                 </div>
-
                 <div className="flex items-center justify-between text-xs border border-border rounded-md px-3 py-2">
                   <span className="font-medium">
                     Show About Me card on public profile
@@ -1479,13 +1577,10 @@ function EditProfileDialog({
                     onCheckedChange={setShowAboutMeOnProfile}
                   />
                 </div>
-
                 {readmeTab === "edit" ? (
                   <textarea
                     className={cn(
-                      "flex-1 w-full rounded-md border border-input bg-transparent px-3 py-2.5 text-xs  shadow-sm",
-                      "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                      "resize-none overflow-y-auto leading-relaxed",
+                      "flex-1 w-full rounded-md border border-input bg-transparent px-3 py-2.5 text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none overflow-y-auto leading-relaxed",
                     )}
                     value={form.profileReadme}
                     onChange={(e) =>
@@ -1507,7 +1602,6 @@ function EditProfileDialog({
               </div>
             )}
           </div>
-
           <div className="shrink-0 flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
             <Button
               variant="ghost"
@@ -1533,12 +1627,36 @@ function EditProfileDialog({
   );
 }
 
-// MAIN DASHBOARD
+// ─── MAIN DASHBOARD ──────────────────────────────────────────────────────────
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [editOpen, setEditOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  // Overview state
+  const [overviewData, setOverviewData] = useState<OverviewData | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState(false);
+
+  // Problems state
+  const [problems, setProblems] = useState<ProblemRow[]>([]);
+  const [problemsLoading, setProblemsLoading] = useState(false);
+  const [problemsError, setProblemsError] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
+  const [tagFilter, setTagFilter] = useState("All");
+
+  // Submissions state
+  const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionsError, setSubmissionsError] = useState(false);
+  const [subPage, setSubPage] = useState(1);
+  const [subTotal, setSubTotal] = useState(0);
+  const [subTotalPages, setSubTotalPages] = useState(1);
+  const [subStatusFilter, setSubStatusFilter] = useState<
+    "All" | "Accepted" | "Wrong Answer"
+  >("All");
+  const SUB_LIMIT = 20;
 
   const [profile, setProfile] = useState<ProfileData>({
     username: "",
@@ -1558,16 +1676,7 @@ export default function Dashboard() {
     createdAt: "",
   });
 
-  const solved = 87;
-  const total = 200;
-  const easy = 42;
-  const easyTotal = 80;
-  const medium = 35;
-  const mediumTotal = 90;
-  const hard = 10;
-  const hardTotal = 30;
-  const isNewUser = (solved as number) === 0;
-
+  // ── Fetch profile (avatar/bio section — unchanged) ───────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -1599,34 +1708,138 @@ export default function Dashboard() {
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        setProfileLoading(false);
       }
     })();
   }, []);
 
-  // Reset About Me preview toggle when profile data changes
-  useEffect(() => {}, [profile.profileReadme]);
+  // ── Fetch overview when tab is active ────────────────────────────────────
+  const fetchOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    setOverviewError(false);
+    try {
+      const res = await fetch("/api/profile/dashboard/overview", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("overview fetch failed");
+      const json = await res.json();
+      if (json.status === "success") setOverviewData(json.data);
+      else throw new Error("bad response");
+    } catch (err) {
+      console.error(err);
+      setOverviewError(true);
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, []);
 
-  const filteredProblems = problems.filter((p) =>
-    activeFilter === "All" ? true : p.difficulty === activeFilter,
-  );
+  // ── Fetch problems ────────────────────────────────────────────────────────
+  const fetchProblems = useCallback(async () => {
+    setProblemsLoading(true);
+    setProblemsError(false);
+    try {
+      const res = await fetch("/api/profile/dashboard/problems", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("problems fetch failed");
+      const json = await res.json();
+      if (json.status === "success") setProblems(json.data.problems);
+      else throw new Error("bad response");
+    } catch (err) {
+      console.error(err);
+      setProblemsError(true);
+    } finally {
+      setProblemsLoading(false);
+    }
+  }, []);
 
+  // ── Fetch submissions ─────────────────────────────────────────────────────
+  const fetchSubmissions = useCallback(async (page: number) => {
+    setSubmissionsLoading(true);
+    setSubmissionsError(false);
+    try {
+      const res = await fetch(
+        `/api/profile/dashboard/submissions?page=${page}&limit=${SUB_LIMIT}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("submissions fetch failed");
+      const json = await res.json();
+      if (json.status === "success") {
+        setSubmissions(json.data.submissions);
+        setSubTotal(json.data.pagination.total);
+        setSubTotalPages(json.data.pagination.totalPages);
+      } else throw new Error("bad response");
+    } catch (err) {
+      console.error(err);
+      setSubmissionsError(true);
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  }, []);
+
+  // ── Load data when tab changes (lazy load) ────────────────────────────────
+  useEffect(() => {
+    if (activeTab === "overview" && !overviewData && !overviewLoading)
+      fetchOverview();
+    if (activeTab === "problems" && problems.length === 0 && !problemsLoading)
+      fetchProblems();
+    if (
+      activeTab === "submissions" &&
+      submissions.length === 0 &&
+      !submissionsLoading
+    )
+      fetchSubmissions(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, fetchOverview, fetchProblems, fetchSubmissions]);
+
+  // ── Pagination for submissions ────────────────────────────────────────────
+  const handleSubPageChange = (newPage: number) => {
+    setSubPage(newPage);
+    fetchSubmissions(newPage);
+  };
+
+  // ── Derived values ────────────────────────────────────────────────────────
   const joinedDate = profile.createdAt
     ? new Date(profile.createdAt).toLocaleString("default", {
         month: "long",
         year: "numeric",
       })
     : null;
-
   const renderedReadme = useMemo(
     () => (profile.profileReadme ? renderMarkdown(profile.profileReadme) : ""),
     [profile.profileReadme],
   );
 
+  const isNewUser =
+    overviewData !== null && overviewData.stats.totalSolved === 0;
+
+  const filteredProblems = useMemo(() => {
+    return problems.filter((p) => {
+      // Case-insensitive difficulty match — DB may store "easy"/"Easy"/"EASY"
+      const diffMatch =
+        activeFilter === "All" ||
+        (p.difficulty ?? "").toLowerCase() === activeFilter.toLowerCase();
+      // Tag match — safe even if tags is empty array
+      const tagMatch =
+        tagFilter === "All" ||
+        (Array.isArray(p.tags) && p.tags.includes(tagFilter));
+      return diffMatch && tagMatch;
+    });
+  }, [problems, activeFilter, tagFilter]);
+
+  const allTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    problems.forEach((p) => p.tags.forEach((t) => tagSet.add(t)));
+    return ["All", ...Array.from(tagSet).sort()];
+  }, [problems]);
+
+  const overviewStats = overviewData?.stats;
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <main className="w-full max-w-4xl mx-auto pb-10">
-        {/* Banner */}
+        {/* Banner (unchanged) */}
         <div className="relative w-full h-36 sm:h-44 bg-muted overflow-hidden">
           {profile.bannerUrl ? (
             <img
@@ -1640,22 +1853,19 @@ export default function Dashboard() {
           <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background/70 to-transparent" />
         </div>
 
-        {/* Profile header */}
+        {/* Profile header (unchanged) */}
         <div className="px-4 sm:px-6 relative">
           <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 -mt-10 sm:-mt-12 mb-8">
-            {/* Avatar */}
             <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border-4 border-background shrink-0 shadow-sm">
               <AvatarImage src={profile.avatarUrl} />
               <AvatarFallback className="text-xl font-semibold">
                 {getInitials(profile.displayName)}
               </AvatarFallback>
             </Avatar>
-
-            {/* Content area */}
             <div className="flex-1 min-w-0 w-full pt-2 sm:pt-12">
               <div className="flex justify-between items-start">
                 <div className="min-w-0">
-                  {loading ? (
+                  {profileLoading ? (
                     <div className="space-y-1.5">
                       <Skeleton className="h-7 w-36 rounded" />
                       <Skeleton className="h-4 w-24 rounded" />
@@ -1679,8 +1889,6 @@ export default function Dashboard() {
                     </>
                   )}
                 </div>
-
-                {/* Edit button — moved to top-right (clean & logical) */}
                 <Button
                   size="sm"
                   variant="outline"
@@ -1691,9 +1899,8 @@ export default function Dashboard() {
                   Edit Profile
                 </Button>
               </div>
-
               <div className="flex flex-wrap items-center gap-2 mt-4">
-                {loading ? (
+                {profileLoading ? (
                   <>
                     <Skeleton className="h-5 w-20 rounded-full" />
                     <Skeleton className="h-5 w-28 rounded-full" />
@@ -1733,8 +1940,7 @@ export default function Dashboard() {
                   </>
                 )}
               </div>
-
-              {loading ? (
+              {profileLoading ? (
                 <div className="mt-4 space-y-1.5">
                   <Skeleton className="h-3.5 w-full max-w-xs rounded" />
                   <Skeleton className="h-3.5 w-2/3 rounded" />
@@ -1744,9 +1950,8 @@ export default function Dashboard() {
                   {profile.bio}
                 </p>
               ) : null}
-
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-xs text-muted-foreground">
-                {loading ? (
+                {profileLoading ? (
                   <>
                     <Skeleton className="h-3 w-32 rounded" />
                     <Skeleton className="h-3 w-20 rounded" />
@@ -1800,7 +2005,7 @@ export default function Dashboard() {
           onSave={setProfile}
         />
 
-        {/* About Me card with toggle option */}
+        {/* About Me card (unchanged) */}
         {profile.profileReadme?.trim() && (
           <div className="px-4 sm:px-6 mb-6">
             <Card>
@@ -1822,7 +2027,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Tabs */}
+        {/* ── TABS ─────────────────────────────────────────────────────────── */}
         <div className="px-4 sm:px-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-6 h-9">
@@ -1837,64 +2042,96 @@ export default function Dashboard() {
               </TabsTrigger>
             </TabsList>
 
-            {/* OVERVIEW + PROBLEMS + SUBMISSIONS tabs remain exactly the same as before */}
+            {/* ── OVERVIEW ─────────────────────────────────────────────────── */}
             <TabsContent value="overview" className="space-y-6 mt-0">
-              {/* ... (all overview content unchanged) */}
+              {/* Stats cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {[
-                  {
-                    label: "Solved",
-                    value: isNewUser ? "0" : String(solved),
-                    sub: `/ ${total}`,
-                    icon: CheckCircle2,
-                    cc: "text-[#22C55E]",
-                  },
-                  {
-                    label: "Acceptance",
-                    value: isNewUser ? "—" : "76%",
-                    sub: "all time",
-                    icon: BarChart3,
-                    cc: "text-[#3b82f6]",
-                  },
-                  {
-                    label: "Streak",
-                    value: isNewUser ? "0" : "50",
-                    sub: "days",
-                    icon: Flame,
-                    cc: "text-[#FF5722] fill-[#FF5722]",
-                  },
-                  {
-                    label: "Points",
-                    value: isNewUser ? "0" : "2,340",
-                    sub: "total",
-                    icon: Trophy,
-                    cc: "text-[#FFC107] fill-[#FFC107]",
-                  },
-                ].map(({ label, value, sub, icon: Icon, cc }) => (
-                  <Card key={label}>
-                    <CardContent className="pt-5 pb-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-xs text-muted-foreground">
-                            {label}
-                          </p>
-                          <p className="text-2xl font-semibold tracking-tight mt-0.5">
-                            {value}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {sub}
-                          </p>
+                {(overviewLoading || overviewData === null) &&
+                !overviewError ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="pt-5 pb-4">
+                        <Skeleton className="h-3 w-16 mb-2" />
+                        <Skeleton className="h-8 w-12 mb-1" />
+                        <Skeleton className="h-3 w-14" />
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : overviewError ? (
+                  <div className="col-span-4">
+                    <ErrorState
+                      message="Could not load stats."
+                      onRetry={fetchOverview}
+                    />
+                  </div>
+                ) : (
+                  [
+                    {
+                      label: "Solved",
+                      value: `${overviewStats!.totalSolved}`,
+                      sub: `/ ${overviewStats!.totalProblems}`,
+                      icon: CheckCircle2,
+                      cc: "text-[#22C55E]",
+                    },
+                    {
+                      label: "Acceptance",
+                      value: `${overviewStats!.acceptanceRate}%`,
+                      sub: "all time",
+                      icon: BarChart3,
+                      cc: "text-[#3b82f6]",
+                    },
+                    {
+                      label: "Streak",
+                      value: `${overviewStats!.currentStreak}`,
+                      sub: "days",
+                      icon: Flame,
+                      cc: "text-[#FF5722]",
+                    },
+                    {
+                      label: "XP",
+                      value: overviewStats!.xp.toLocaleString(),
+                      sub: `Level ${overviewStats!.level}`,
+                      icon: Trophy,
+                      cc: "text-[#FFC107]",
+                    },
+                  ].map(({ label, value, sub, icon: Icon, cc }) => (
+                    <Card key={label}>
+                      <CardContent className="pt-5 pb-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              {label}
+                            </p>
+                            <p className="text-2xl font-semibold tracking-tight mt-0.5">
+                              {value}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {sub}
+                            </p>
+                          </div>
+                          <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", cc)} />
                         </div>
-                        <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", cc)} />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
+
+              {/* Charts */}
               <div className="grid md:grid-cols-2 gap-4">
-                <SolvedRadialChart isEmpty={isNewUser} />
-                <SkillRadarChart isEmpty={isNewUser} />
+                <SolvedRadialChart
+                  radialData={overviewData?.radialData ?? []}
+                  loading={overviewLoading || overviewData === null}
+                  error={overviewError}
+                />
+                <SkillRadarChart
+                  radarData={overviewData?.radarData ?? []}
+                  loading={overviewLoading || overviewData === null}
+                  error={overviewError}
+                />
               </div>
+
+              {/* Progress by difficulty */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">
@@ -1902,7 +2139,19 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {isNewUser ? (
+                  {(overviewLoading || overviewData === null) &&
+                  !overviewError ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="space-y-1.5">
+                          <Skeleton className="h-3 w-full" />
+                          <Skeleton className="h-1.5 w-full" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : overviewError ? (
+                    <ErrorState message="Could not load progress." />
+                  ) : isNewUser ? (
                     <EmptyPlaceholder
                       icon={
                         <TrendingUp className="w-6 h-6 text-muted-foreground/50" />
@@ -1912,76 +2161,131 @@ export default function Dashboard() {
                     />
                   ) : (
                     <div className="space-y-4">
-                      {[
-                        { label: "Easy", solved: easy, total: easyTotal },
-                        { label: "Medium", solved: medium, total: mediumTotal },
-                        { label: "Hard", solved: hard, total: hardTotal },
-                      ].map(({ label, solved, total }) => (
-                        <div key={label} className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">
-                              {label}
-                            </span>
-                            <span className="tabular-nums">
-                              {solved}{" "}
+                      {(["Easy", "Medium", "Hard"] as const).map((label) => {
+                        const d = overviewData!.difficultyBreakdown[label] ?? {
+                          solved: 0,
+                          total: 0,
+                        };
+                        return (
+                          <div key={label} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
                               <span className="text-muted-foreground">
-                                / {total}
+                                {label}
                               </span>
-                            </span>
+                              <span className="tabular-nums">
+                                {d.solved}{" "}
+                                <span className="text-muted-foreground">
+                                  / {d.total}
+                                </span>
+                              </span>
+                            </div>
+                            <Progress
+                              value={
+                                d.total > 0 ? (d.solved / d.total) * 100 : 0
+                              }
+                              className="h-1.5 [&>div]:bg-chart-2"
+                            />
                           </div>
-                          <Progress
-                            value={(solved / total) * 100}
-                            className="h-1.5 [&>div]:bg-chart-2"
-                          />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
               </Card>
-              <SubmissionHeatmap isEmpty={isNewUser} />
+
+              {/* Heatmap */}
+              <SubmissionHeatmap
+                heatmapData={overviewData?.heatmap ?? []}
+                loading={overviewLoading || overviewData === null}
+                error={overviewError}
+              />
+
+              {/* Badges + Recent Submissions */}
               <div className="grid md:grid-cols-2 gap-4">
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Badges</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {isNewUser ? (
+                    {(overviewLoading || overviewData === null) &&
+                    !overviewError ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <Skeleton key={i} className="h-12 rounded-md" />
+                        ))}
+                      </div>
+                    ) : overviewError ? (
+                      <ErrorState message="Could not load badges." />
+                    ) : overviewData?.badges.length === 0 ? (
                       <EmptyPlaceholder
                         icon={
                           <Trophy className="w-6 h-6 text-muted-foreground/50" />
                         }
-                        title="No badges earned yet"
+                        title="No badges yet"
                         description="Complete challenges and streaks to unlock badges."
                       />
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
-                        {badgeList.map(({ label, icon: Icon, earned }) => (
-                          <div
-                            key={label}
-                            className={`flex items-center gap-2.5 rounded-md border p-3 transition-colors ${earned ? "border-border" : "border-border/40 opacity-40"}`}
-                          >
-                            {earned ? (
-                              <Icon className="w-4 h-4 shrink-0" />
-                            ) : (
-                              <Lock className="w-4 h-4 shrink-0 text-muted-foreground" />
-                            )}
-                            <span className="text-xs leading-tight">
-                              {label}
-                            </span>
-                          </div>
+                        {overviewData?.badges.map((badge) => (
+                          <TooltipProvider key={badge.id} delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className={cn(
+                                    "flex items-center gap-2.5 rounded-md border p-3 transition-colors cursor-default",
+                                    badge.earned
+                                      ? "border-border"
+                                      : "border-border/40 opacity-40",
+                                  )}
+                                >
+                                  {badge.earned ? (
+                                    <BadgeIcon code={badge.code} />
+                                  ) : (
+                                    <Lock className="w-4 h-4 shrink-0 text-muted-foreground" />
+                                  )}
+                                  <span className="text-xs leading-tight">
+                                    {badge.name}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              {badge.description && (
+                                <TooltipContent className="text-xs max-w-[180px]">
+                                  <p>{badge.description}</p>
+                                  {badge.earned && badge.earnedAt && (
+                                    <p className="text-muted-foreground mt-1">
+                                      Earned {timeAgo(badge.earnedAt)}
+                                    </p>
+                                  )}
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
                         ))}
                       </div>
                     )}
                   </CardContent>
                 </Card>
+
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">
                       Recent Submissions
                     </CardTitle>
                   </CardHeader>
-                  {isNewUser ? (
+                  {(overviewLoading || overviewData === null) &&
+                  !overviewError ? (
+                    <CardContent>
+                      <div className="space-y-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Skeleton key={i} className="h-10 w-full rounded" />
+                        ))}
+                      </div>
+                    </CardContent>
+                  ) : overviewError ? (
+                    <CardContent>
+                      <ErrorState message="Could not load submissions." />
+                    </CardContent>
+                  ) : overviewData?.recentSubmissions.length === 0 ? (
                     <CardContent>
                       <EmptyPlaceholder
                         icon={
@@ -1994,19 +2298,22 @@ export default function Dashboard() {
                   ) : (
                     <CardContent className="p-0">
                       <div className="divide-y divide-border">
-                        {recentSubmissions.slice(0, 5).map((s) => (
+                        {overviewData?.recentSubmissions.map((s) => (
                           <div
                             key={s.id}
                             className="flex items-center justify-between px-6 py-2.5 hover:bg-muted/40 transition-colors"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <StatusIcon status={s.status} />
+                              <StatusIcon isCorrect={s.isCorrect} />
                               <div className="min-w-0">
                                 <p className="text-xs font-medium truncate">
                                   {s.title}
                                 </p>
                                 <p className="text-[11px] text-muted-foreground">
-                                  {s.time}
+                                  {timeAgo(s.createdAt)}
+                                  {s.executionTimeMs
+                                    ? ` · ${s.executionTimeMs}ms`
+                                    : ""}
                                 </p>
                               </div>
                             </div>
@@ -2020,14 +2327,21 @@ export default function Dashboard() {
               </div>
             </TabsContent>
 
+            {/* ── PROBLEMS ──────────────────────────────────────────────────── */}
             <TabsContent value="problems" className="mt-0">
-              {/* problems tab unchanged */}
               <Card className="border-border/50 shadow-sm">
                 <CardHeader className="pb-0">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <CardTitle className="text-base font-semibold">
                       Problem Set
+                      {!problemsLoading && !problemsError && (
+                        <span className="text-xs font-normal text-muted-foreground ml-2">
+                          {problems.filter((p) => p.isSolved).length}/
+                          {problems.length} solved
+                        </span>
+                      )}
                     </CardTitle>
+                    {/* Difficulty filter — values match DB exactly */}
                     <div className="flex gap-1.5 flex-wrap">
                       {["All", "Easy", "Medium", "Hard"].map((f) => (
                         <Button
@@ -2046,93 +2360,229 @@ export default function Dashboard() {
                       ))}
                     </div>
                   </div>
+                  {/* Tag filter row */}
+                  {allTags.length > 1 && (
+                    <div className="flex gap-1.5 flex-wrap pt-3 pb-1">
+                      {allTags.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTagFilter(t)}
+                          className={cn(
+                            "px-2 py-0.5 rounded-full text-[11px] border transition-colors",
+                            tagFilter === t
+                              ? "bg-foreground text-background border-foreground"
+                              : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40",
+                          )}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent className="pt-4 px-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent border-border/50">
-                          <TableHead className="text-xs w-8 pl-6">#</TableHead>
-                          <TableHead className="text-xs">Title</TableHead>
-                          <TableHead className="text-xs">Category</TableHead>
-                          <TableHead className="text-xs">Difficulty</TableHead>
-                          <TableHead className="text-xs text-right pr-6">
-                            Status
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredProblems.map((p) => (
-                          <TableRow
-                            key={p.id}
-                            className="group cursor-pointer border-border/40 hover:bg-muted/30 transition-colors"
-                          >
-                            <TableCell className="text-xs text-muted-foreground pl-6">
-                              {p.id}
-                            </TableCell>
-                            <TableCell className="text-xs font-medium">
-                              {p.title}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className="text-[10px]  font-normal bg-muted/20 border-border/50"
-                              >
-                                {p.category}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <span
-                                className={cn(
-                                  "text-[11px] font-medium",
-                                  p.difficulty === "Easy" && "text-emerald-500",
-                                  p.difficulty === "Medium" && "text-amber-500",
-                                  p.difficulty === "Hard" && "text-rose-500",
-                                )}
-                              >
-                                {p.difficulty}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right pr-6">
-                              {p.solved ? (
-                                <CheckCircle2
-                                  className="w-4 h-4 inline-block text-[#22C55E]"
-                                  strokeWidth={2.5}
-                                />
-                              ) : (
-                                <div className="w-4 h-4 rounded-full border-2 border-muted/50 inline-block" />
-                              )}
-                            </TableCell>
+                  {problemsLoading ? (
+                    <div className="px-6 space-y-3">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 w-full rounded" />
+                      ))}
+                    </div>
+                  ) : problemsError ? (
+                    <div className="px-6">
+                      <ErrorState
+                        message="Could not load problems."
+                        onRetry={fetchProblems}
+                      />
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent border-border/50">
+                            <TableHead className="text-xs w-8 pl-6">
+                              #
+                            </TableHead>
+                            <TableHead className="text-xs">Title</TableHead>
+                            <TableHead className="text-xs">
+                              Difficulty
+                            </TableHead>
+                            <TableHead className="text-xs hidden sm:table-cell">
+                              Tags
+                            </TableHead>
+                            <TableHead className="text-xs hidden md:table-cell">
+                              Acceptance
+                            </TableHead>
+                            <TableHead className="text-xs text-right pr-6">
+                              Status
+                            </TableHead>
                           </TableRow>
-                        ))}
-                        {!filteredProblems.length && (
-                          <TableRow>
-                            <TableCell
-                              colSpan={5}
-                              className="h-24 text-center text-muted-foreground text-xs"
+                        </TableHeader>
+                        <TableBody>
+                          {filteredProblems.map((p, idx) => (
+                            <TableRow
+                              key={p.id}
+                              className="group cursor-pointer border-border/40 hover:bg-muted/30 transition-colors"
                             >
-                              No {activeFilter.toLowerCase()} problems found.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                              <TableCell className="text-xs text-muted-foreground pl-6">
+                                {idx + 1}
+                              </TableCell>
+                              <TableCell className="text-xs font-medium max-w-[220px]">
+                                <span className="block truncate">
+                                  {p.title}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <DifficultyBadge difficulty={p.difficulty} />
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell">
+                                <div className="flex flex-wrap gap-1">
+                                  {p.tags.length === 0 && (
+                                    <span className="text-[11px] text-muted-foreground">
+                                      —
+                                    </span>
+                                  )}
+                                  {p.tags.slice(0, 2).map((tag) => (
+                                    <Badge
+                                      key={tag}
+                                      variant="outline"
+                                      className="text-[10px] font-normal bg-muted/20 border-border/50"
+                                    >
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                  {p.tags.length > 2 && (
+                                    <TooltipProvider delayDuration={100}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[10px] font-normal bg-muted/20 border-border/50 cursor-default"
+                                          >
+                                            +{p.tags.length - 2}
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="text-xs">
+                                          {p.tags.slice(2).join(", ")}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                                {p.acceptanceRate != null
+                                  ? `${p.acceptanceRate.toFixed(1)}%`
+                                  : "—"}
+                              </TableCell>
+                              <TableCell className="text-right pr-6">
+                                {p.isSolved ? (
+                                  <CheckCircle2
+                                    className="w-4 h-4 inline-block text-[#22C55E]"
+                                    strokeWidth={2.5}
+                                  />
+                                ) : p.attempts > 0 ? (
+                                  <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="w-4 h-4 rounded-full border-2 border-amber-400/60 inline-block cursor-default" />
+                                      </TooltipTrigger>
+                                      <TooltipContent className="text-xs">
+                                        {p.attempts} attempt
+                                        {p.attempts > 1 ? "s" : ""}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ) : (
+                                  <div className="w-4 h-4 rounded-full border-2 border-muted/50 inline-block" />
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {!filteredProblems.length && (
+                            <TableRow>
+                              <TableCell
+                                colSpan={6}
+                                className="h-24 text-center text-muted-foreground text-xs"
+                              >
+                                No
+                                {activeFilter !== "All"
+                                  ? ` ${activeFilter.toLowerCase()}`
+                                  : ""}{" "}
+                                problems
+                                {tagFilter !== "All"
+                                  ? ` tagged "${tagFilter}"`
+                                  : ""}{" "}
+                                found.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
+            {/* ── SUBMISSIONS ───────────────────────────────────────────────── */}
             <TabsContent value="submissions" className="mt-0">
-              {/* submissions tab unchanged */}
               <Card>
                 <CardHeader className="pb-0">
-                  <CardTitle className="text-base">All Submissions</CardTitle>
-                  <CardDescription className="text-xs">
-                    Your complete submission history
-                  </CardDescription>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-base">
+                        All Submissions
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Your complete submission history
+                        {subTotal > 0 ? ` · ${subTotal} total` : ""}
+                      </CardDescription>
+                    </div>
+                    {/* Status filter */}
+                    <div className="flex gap-1.5 flex-wrap">
+                      {(["All", "Accepted", "Wrong Answer"] as const).map(
+                        (f) => (
+                          <Button
+                            key={f}
+                            variant={
+                              subStatusFilter === f ? "secondary" : "ghost"
+                            }
+                            size="sm"
+                            className={cn(
+                              "h-7 text-xs px-2.5 transition-all",
+                              subStatusFilter === f &&
+                                "bg-secondary text-secondary-foreground",
+                              f === "Accepted" &&
+                                subStatusFilter === f &&
+                                "text-emerald-600 dark:text-emerald-400",
+                              f === "Wrong Answer" &&
+                                subStatusFilter === f &&
+                                "text-rose-600 dark:text-rose-400",
+                            )}
+                            onClick={() => setSubStatusFilter(f)}
+                          >
+                            {f}
+                          </Button>
+                        ),
+                      )}
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="pt-4 px-0">
-                  {isNewUser ? (
+                  {submissionsLoading ? (
+                    <div className="px-6 space-y-3">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 w-full rounded" />
+                      ))}
+                    </div>
+                  ) : submissionsError ? (
+                    <div className="px-6">
+                      <ErrorState
+                        message="Could not load submissions."
+                        onRetry={() => fetchSubmissions(subPage)}
+                      />
+                    </div>
+                  ) : submissions.length === 0 ? (
                     <EmptyPlaceholder
                       icon={
                         <Clock className="w-6 h-6 text-muted-foreground/50" />
@@ -2141,52 +2591,145 @@ export default function Dashboard() {
                       description="Once you start solving problems, all your submissions will be tracked here."
                     />
                   ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="hover:bg-transparent border-border">
-                            <TableHead className="text-xs pl-6">
-                              Problem
-                            </TableHead>
-                            <TableHead className="text-xs">
-                              Difficulty
-                            </TableHead>
-                            <TableHead className="text-xs">Status</TableHead>
-                            <TableHead className="text-xs">Runtime</TableHead>
-                            <TableHead className="text-xs text-right pr-6">
-                              Time
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {recentSubmissions.map((s) => (
-                            <TableRow
-                              key={s.id}
-                              className="cursor-pointer border-border"
-                            >
-                              <TableCell className="text-xs font-medium pl-6">
-                                {s.title}
-                              </TableCell>
-                              <TableCell>
-                                <DifficultyBadge difficulty={s.difficulty} />
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1.5">
-                                  <StatusIcon status={s.status} />
-                                  <span className="text-xs">{s.status}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
-                                {s.runtime}
-                              </TableCell>
-                              <TableCell className="text-xs text-muted-foreground text-right pr-6">
-                                {s.time}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                    (() => {
+                      // Client-side filter on top of the paginated slice
+                      const filtered = submissions.filter((s) => {
+                        if (subStatusFilter === "All") return true;
+                        if (subStatusFilter === "Accepted")
+                          return s.isCorrect === true;
+                        if (subStatusFilter === "Wrong Answer")
+                          return s.isCorrect === false;
+                        return true;
+                      });
+
+                      return (
+                        <>
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="hover:bg-transparent border-border">
+                                  <TableHead className="text-xs pl-6">
+                                    Problem
+                                  </TableHead>
+                                  <TableHead className="text-xs">
+                                    Difficulty
+                                  </TableHead>
+                                  <TableHead className="text-xs">
+                                    Status
+                                  </TableHead>
+                                  <TableHead className="text-xs hidden sm:table-cell">
+                                    Runtime
+                                  </TableHead>
+                                  <TableHead className="text-xs hidden sm:table-cell">
+                                    Engine
+                                  </TableHead>
+                                  <TableHead className="text-xs text-right pr-6">
+                                    Time
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {filtered.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell
+                                      colSpan={6}
+                                      className="h-24 text-center text-muted-foreground text-xs"
+                                    >
+                                      No{" "}
+                                      {subStatusFilter !== "All"
+                                        ? `"${subStatusFilter}" `
+                                        : ""}
+                                      submissions on this page.
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  filtered.map((s) => (
+                                    <TableRow
+                                      key={s.id}
+                                      className="cursor-pointer border-border hover:bg-muted/30 transition-colors"
+                                    >
+                                      <TableCell className="text-xs font-medium pl-6 max-w-[200px]">
+                                        <span className="block truncate">
+                                          {s.title}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell>
+                                        <DifficultyBadge
+                                          difficulty={s.difficulty}
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="flex items-center gap-1.5">
+                                          <StatusIcon isCorrect={s.isCorrect} />
+                                          <span
+                                            className={cn(
+                                              "text-xs",
+                                              s.isCorrect === true &&
+                                                "text-emerald-600 dark:text-emerald-400",
+                                              s.isCorrect === false &&
+                                                "text-rose-600 dark:text-rose-400",
+                                            )}
+                                          >
+                                            {statusLabel(s.isCorrect)}
+                                          </span>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
+                                        {s.executionTimeMs != null
+                                          ? `${s.executionTimeMs}ms`
+                                          : "—"}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">
+                                        {s.engine ?? "—"}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground text-right pr-6">
+                                        {timeAgo(s.createdAt)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+
+                          {/* Pagination */}
+                          {subTotalPages > 1 && (
+                            <div className="flex items-center justify-between px-6 pt-4 pb-2">
+                              <p className="text-xs text-muted-foreground">
+                                Page {subPage} of {subTotalPages}
+                              </p>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  disabled={subPage <= 1 || submissionsLoading}
+                                  onClick={() =>
+                                    handleSubPageChange(subPage - 1)
+                                  }
+                                >
+                                  <ChevronLeft className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  disabled={
+                                    subPage >= subTotalPages ||
+                                    submissionsLoading
+                                  }
+                                  onClick={() =>
+                                    handleSubPageChange(subPage + 1)
+                                  }
+                                >
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()
                   )}
                 </CardContent>
               </Card>

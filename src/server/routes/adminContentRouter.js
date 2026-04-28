@@ -8,33 +8,224 @@ const router = new Router();
 // Apply auth + admin check to every route in this file
 router.use(authenticateToken, authorizeRoles("admin"));
 
-// TRACKS
+// CONSTANTS
+
+const SUPPORTED_DIALECTS = ["universal", "postgres", "mysql", "sqlite"];
+
+// SHARED SQL-VARIANT HELPERS
+
+/**
+ * Upsert lesson SQL variants from a variants map.
+ *
+ * @param {object} client  - pg client (inside a transaction)
+ * @param {number} lessonId
+ * @param {object} variantsMap - e.g. { universal: "SELECT 1", postgres: "SELECT NOW()" }
+ *   Pass null / undefined to skip. Pass an empty object {} to delete all variants.
+ */
+async function upsertLessonSqlVariants(client, lessonId, variantsMap) {
+  if (variantsMap === null || variantsMap === undefined) return;
+
+  const incoming = Object.entries(variantsMap).filter(
+    ([dialect, sql]) =>
+      SUPPORTED_DIALECTS.includes(dialect) &&
+      typeof sql === "string" &&
+      sql.trim() !== "",
+  );
+
+  // Delete dialects that are explicitly removed (key present, value empty/null)
+  const toDelete = Object.entries(variantsMap)
+    .filter(
+      ([dialect, sql]) => SUPPORTED_DIALECTS.includes(dialect) && !sql?.trim(),
+    )
+    .map(([dialect]) => dialect);
+
+  if (toDelete.length) {
+    await client.query(
+      `DELETE FROM lesson_sql_variants WHERE lesson_id=$1 AND dialect = ANY($2::sql_dialect[])`,
+      [lessonId, toDelete],
+    );
+  }
+
+  for (const [dialect, sql_text] of incoming) {
+    await client.query(
+      `INSERT INTO lesson_sql_variants (lesson_id, dialect, sql_text, updated_at)
+       VALUES ($1, $2::sql_dialect, $3, NOW())
+       ON CONFLICT (lesson_id, dialect)
+       DO UPDATE SET sql_text = EXCLUDED.sql_text, updated_at = NOW()`,
+      [lessonId, dialect, sql_text],
+    );
+  }
+}
+
+/**
+ * Upsert problem SQL variants.
+ *
+ * @param {object} client
+ * @param {number} problemId
+ * @param {object} sqlVariants - shape:
+ * {
+ *   starter:  { universal: "...", postgres: "...", mysql: "...", sqlite: "..." },
+ *   schema:   { universal: "..." },
+ *   solution: {
+ *     universal: ["SELECT ...", "SELECT ..."],
+ *     postgres:  ["SELECT NOW()"],
+ *   }
+ * }
+ */
+async function upsertProblemSqlVariants(client, problemId, sqlVariants) {
+  if (!sqlVariants) return;
+
+  if (sqlVariants.starter !== undefined) {
+    await _upsertSimpleVariants(
+      client,
+      problemId,
+      "starter",
+      sqlVariants.starter,
+    );
+  }
+
+  if (sqlVariants.schema !== undefined) {
+    await _upsertSimpleVariants(
+      client,
+      problemId,
+      "schema",
+      sqlVariants.schema,
+    );
+  }
+
+  if (sqlVariants.solution !== undefined) {
+    for (const [dialect, solutions] of Object.entries(sqlVariants.solution)) {
+      if (!SUPPORTED_DIALECTS.includes(dialect)) continue;
+
+      // Replace strategy: delete then re-insert
+      await client.query(
+        `DELETE FROM problem_sql_variants
+         WHERE problem_id=$1 AND variant_type='solution' AND dialect=$2::sql_dialect`,
+        [problemId, dialect],
+      );
+
+      if (!Array.isArray(solutions) || solutions.length === 0) continue;
+
+      for (let i = 0; i < solutions.length; i++) {
+        const sql_text = solutions[i];
+        if (typeof sql_text !== "string" || !sql_text.trim()) continue;
+        await client.query(
+          `INSERT INTO problem_sql_variants
+             (problem_id, variant_type, dialect, sql_text, sort_order, updated_at)
+           VALUES ($1, 'solution', $2::sql_dialect, $3, $4, NOW())`,
+          [problemId, dialect, sql_text, i],
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Internal helper for single-row-per-dialect variant types (starter / schema).
+ * Uses DELETE + INSERT instead of ON CONFLICT to avoid partial-index issues.
+ */
+async function _upsertSimpleVariants(
+  client,
+  problemId,
+  variantType,
+  dialectMap,
+) {
+  if (!dialectMap || typeof dialectMap !== "object") return;
+
+  for (const [dialect, sql_text] of Object.entries(dialectMap)) {
+    if (!SUPPORTED_DIALECTS.includes(dialect)) continue;
+
+    if (!sql_text?.trim()) {
+      // Empty value → delete
+      await client.query(
+        `DELETE FROM problem_sql_variants
+         WHERE problem_id=$1 AND variant_type=$2 AND dialect=$3::sql_dialect`,
+        [problemId, variantType, dialect],
+      );
+      continue;
+    }
+
+    // Delete any existing row first, then insert — avoids ON CONFLICT partial-index issues
+    await client.query(
+      `DELETE FROM problem_sql_variants
+       WHERE problem_id=$1 AND variant_type=$2 AND dialect=$3::sql_dialect`,
+      [problemId, variantType, dialect],
+    );
+    await client.query(
+      `INSERT INTO problem_sql_variants
+         (problem_id, variant_type, dialect, sql_text, updated_at)
+       VALUES ($1, $2, $3::sql_dialect, $4, NOW())`,
+      [problemId, variantType, dialect, sql_text],
+    );
+  }
+}
+
+/**
+ * Fetch all SQL variants for a lesson, grouped into an object:
+ * { universal: "...", postgres: "...", ... }
+ */
+async function fetchLessonSqlVariants(client, lessonId) {
+  const { rows } = await client.query(
+    `SELECT dialect, sql_text FROM lesson_sql_variants WHERE lesson_id=$1 ORDER BY dialect`,
+    [lessonId],
+  );
+  return rows.reduce((acc, r) => ({ ...acc, [r.dialect]: r.sql_text }), {});
+}
+
+/**
+ * Fetch all SQL variants for a problem, grouped by variant_type then dialect:
+ * {
+ *   starter:  { universal: "..." },
+ *   schema:   { universal: "..." },
+ *   solution: { universal: ["...", "..."], postgres: ["..."] }
+ * }
+ */
+async function fetchProblemSqlVariants(client_or_db, problemId) {
+  const { rows } = await client_or_db.query(
+    `SELECT variant_type, dialect, sql_text, sort_order
+     FROM problem_sql_variants
+     WHERE problem_id=$1
+     ORDER BY variant_type, dialect, sort_order`,
+    [problemId],
+  );
+
+  const result = { starter: {}, schema: {}, solution: {} };
+  for (const r of rows) {
+    if (r.variant_type === "solution") {
+      if (!result.solution[r.dialect]) result.solution[r.dialect] = [];
+      result.solution[r.dialect].push(r.sql_text);
+    } else {
+      result[r.variant_type][r.dialect] = r.sql_text;
+    }
+  }
+  return result;
+}
+
+// ─── TRACKS ──────────────────────────────────────────────────────────────────
 
 // GET /api/admin/tracks
-// Returns all tracks with lesson count and exam status.
 router.get("/tracks", async (req, res) => {
   try {
     const { rows } = await db.query(`
       SELECT
         t.*,
-        COUNT(DISTINCT l.id)            AS lesson_count,
-        te.id                            AS exam_id,
-        te.is_published                  AS exam_published
+        COUNT(DISTINCT l.id)   AS lesson_count,
+        te.id                  AS exam_id,
+        te.is_published        AS exam_published
       FROM tracks t
-      LEFT JOIN lessons l  ON l.track_id = t.id
+      LEFT JOIN lessons l      ON l.track_id = t.id
       LEFT JOIN track_exams te ON te.track_id = t.id
       GROUP BY t.id, te.id, te.is_published
       ORDER BY t.track_order ASC, t.created_at ASC
     `);
     res.json({ status: "success", data: rows });
   } catch (err) {
-    console.error("GET /api/content/tracks", err);
+    console.error("GET /api/admin/tracks", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// POST /api/content/tracks
-// Create a new track.
+// POST /api/admin/tracks
 router.post("/tracks", async (req, res) => {
   const {
     title,
@@ -55,13 +246,11 @@ router.post("/tracks", async (req, res) => {
 
   try {
     const { rows } = await db.query(
-      `
-      INSERT INTO tracks
-        (title, description, difficulty, track_order, pass_threshold,
-         cert_threshold, cover_image_url, prerequisite_track_id, is_published)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-      RETURNING *
-    `,
+      `INSERT INTO tracks
+         (title, description, difficulty, track_order, pass_threshold,
+          cert_threshold, cover_image_url, prerequisite_track_id, is_published)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING *`,
       [
         title,
         description || null,
@@ -76,13 +265,12 @@ router.post("/tracks", async (req, res) => {
     );
     res.status(201).json({ status: "success", data: rows[0] });
   } catch (err) {
-    console.error("POST /api/content/tracks", err);
+    console.error("POST /api/admin/tracks", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// PATCH /api/content/tracks/:id
-// Update any subset of track fields.
+// PATCH /api/admin/tracks/:id
 router.patch("/tracks/:id", async (req, res) => {
   const id = Number(req.params.id);
   const ALLOWED = [
@@ -96,12 +284,12 @@ router.patch("/tracks/:id", async (req, res) => {
     "prerequisite_track_id",
     "is_published",
   ];
-  const sets = [];
-  const vals = [];
+  const sets = [],
+    vals = [];
   for (const k of ALLOWED) {
     if (req.body[k] !== undefined) {
       vals.push(req.body[k]);
-      sets.push(`${k} = $${vals.length}`);
+      sets.push(`${k}=$${vals.length}`);
     }
   }
   if (!sets.length)
@@ -120,12 +308,12 @@ router.patch("/tracks/:id", async (req, res) => {
         .json({ status: "error", message: "Track not found" });
     res.json({ status: "success", data: rows[0] });
   } catch (err) {
-    console.error("PATCH /api/content/tracks/:id", err);
+    console.error("PATCH /api/admin/tracks/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// DELETE /api/content/tracks/:id
+// DELETE /api/admin/tracks/:id
 router.delete("/tracks/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -136,44 +324,44 @@ router.delete("/tracks/:id", async (req, res) => {
         .json({ status: "error", message: "Track not found" });
     res.json({ status: "success" });
   } catch (err) {
-    console.error("DELETE /api/content/tracks/:id", err);
+    console.error("DELETE /api/admin/tracks/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// LESSONS
+// ─── LESSONS ─────────────────────────────────────────────────────────────────
 
-// GET /api/content/lessons?track_id=N
-// Returns lessons for a track (or all if no track_id given),
-// with their linked problem id if one exists.
+// GET /api/admin/lessons?track_id=N
 router.get("/lessons", async (req, res) => {
   const { track_id } = req.query;
-  const cond = track_id ? "WHERE l.track_id = $1" : "";
+  const cond = track_id ? "WHERE l.track_id=$1" : "";
   const vals = track_id ? [Number(track_id)] : [];
   try {
     const { rows } = await db.query(
-      `
-      SELECT
-        l.*,
-        p.id        AS problem_id,
-        p.title     AS problem_title,
-        p.difficulty AS problem_difficulty
-      FROM lessons l
-      LEFT JOIN problems p ON p.lesson_id = l.id AND p.is_standalone = false
-      ${cond}
-      ORDER BY l.lesson_order ASC
-    `,
+      `SELECT
+         l.*,
+         p.id          AS problem_id,
+         p.title       AS problem_title,
+         p.difficulty  AS problem_difficulty
+       FROM lessons l
+       LEFT JOIN problems p ON p.lesson_id=l.id AND p.is_standalone=false
+       ${cond}
+       ORDER BY l.lesson_order ASC`,
       vals,
     );
+
+    for (const row of rows) {
+      row.demo_sql_variants = await fetchLessonSqlVariants(db, row.id);
+    }
+
     res.json({ status: "success", data: rows });
   } catch (err) {
-    console.error("GET /api/content/lessons", err);
+    console.error("GET /api/admin/lessons", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// GET /api/content/lessons/:id
-// Full lesson detail including its embedded problem and hints.
+// GET /api/admin/lessons/:id
 router.get("/lessons/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -183,41 +371,31 @@ router.get("/lessons/:id", async (req, res) => {
         .status(404)
         .json({ status: "error", message: "Lesson not found" });
 
+    const lesson = lessonRes.rows[0];
+    lesson.demo_sql_variants = await fetchLessonSqlVariants(db, id);
+
     const problemRes = await db.query(
-      `
-      SELECT p.*, array_agg(ph.content ORDER BY ph.hint_order) FILTER (WHERE ph.id IS NOT NULL) AS hints_arr
-      FROM problems p
-      LEFT JOIN problem_hints ph ON ph.problem_id = p.id
-      WHERE p.lesson_id = $1 AND p.is_standalone = false
-      GROUP BY p.id
-    `,
+      `SELECT p.*, array_agg(ph.content ORDER BY ph.hint_order) FILTER (WHERE ph.id IS NOT NULL) AS hints_arr
+       FROM problems p
+       LEFT JOIN problem_hints ph ON ph.problem_id=p.id
+       WHERE p.lesson_id=$1 AND p.is_standalone=false
+       GROUP BY p.id`,
       [id],
     );
 
-    res.json({
-      status: "success",
-      data: { lesson: lessonRes.rows[0], problem: problemRes.rows[0] || null },
-    });
+    let problem = problemRes.rows[0] || null;
+    if (problem) {
+      problem.sql_variants = await fetchProblemSqlVariants(db, problem.id);
+    }
+
+    res.json({ status: "success", data: { lesson, problem } });
   } catch (err) {
-    console.error("GET /api/content/lessons/:id", err);
+    console.error("GET /api/admin/lessons/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// POST /api/content/lessons
-// Creates a lesson and its linked embedded problem in one request.
-// Body shape:
-// {
-//   track_id, title, content (markdown), lesson_order, demo_sql, xp_reward,
-//   hint_xp_penalty, solution_xp_penalty, tags, is_published,
-//   problem: {
-//     title, description, starter_sql, solution_sql (array of strings),
-//     difficulty, xp_reward, order_matters, schema_sql,
-//     hint_xp_penalty, solution_xp_penalty,
-//     hints: [{ hint_order, content, xp_penalty }],
-//     solution_explanation
-//   }
-// }
+// POST /api/admin/lessons
 router.post("/lessons", async (req, res) => {
   const client = await db.connect();
   try {
@@ -228,12 +406,15 @@ router.post("/lessons", async (req, res) => {
       title,
       content,
       lesson_order,
-      demo_sql,
       xp_reward,
       hint_xp_penalty,
       solution_xp_penalty,
       tags,
       is_published,
+      demo_sql_variants,
+      description,
+      learning_goals,
+      objectives,
       problem,
     } = req.body;
 
@@ -241,100 +422,94 @@ router.post("/lessons", async (req, res) => {
       await client.query("ROLLBACK");
       return res.status(400).json({
         status: "error",
-        message: "track_id, title, content are required",
+        message: "track_id, title, and content are required",
       });
     }
 
-    // Insert lesson
     const lessonRes = await client.query(
-      `
-      INSERT INTO lessons
-        (track_id, title, content, lesson_order, demo_sql, xp_reward,
-         hint_xp_penalty, solution_xp_penalty, tags, is_published)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-      RETURNING *
-    `,
+      `INSERT INTO lessons
+         (track_id, title, content, lesson_order, xp_reward,
+          hint_xp_penalty, solution_xp_penalty, tags, is_published,
+          description, learning_goals, objectives)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING *`,
       [
         track_id,
         title,
         content,
-        lesson_order ?? 0,
-        demo_sql || null,
+        lesson_order ?? 1,
         xp_reward ?? 10,
         hint_xp_penalty ?? 5,
         solution_xp_penalty ?? 10,
         tags ? `{${tags.join(",")}}` : null,
         is_published ?? false,
+        description ?? null,
+        Array.isArray(learning_goals) ? `{${learning_goals.join(",")}}` : "{}",
+        Array.isArray(objectives) ? `{${objectives.join(",")}}` : "{}",
       ],
     );
     const lesson = lessonRes.rows[0];
 
+    await upsertLessonSqlVariants(client, lesson.id, demo_sql_variants);
+    lesson.demo_sql_variants = await fetchLessonSqlVariants(client, lesson.id);
+
     let createdProblem = null;
 
     if (problem) {
-      // Insert the embedded problem linked to this lesson
-      const problemRes = await client.query(
-        `
-        INSERT INTO problems
-          (lesson_id, title, description, starter_sql, solution_sql, difficulty,
-           xp_reward, order_matters, schema_sql, hint_xp_penalty, solution_xp_penalty,
-           is_standalone, is_published, tags)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,false,$12,$13)
-        RETURNING *
-      `,
+      const probRes = await client.query(
+        `INSERT INTO problems
+           (lesson_id, title, description, difficulty, xp_reward, order_matters,
+            hint_xp_penalty, solution_xp_penalty,
+            is_standalone, is_published, tags,
+            starter_sql, solution_sql, schema_sql)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,false,$9,$10,null,'[]'::jsonb,null)
+         RETURNING *`,
         [
           lesson.id,
           problem.title || title,
           problem.description || "",
-          problem.starter_sql || null,
-          JSON.stringify(problem.solution_sql || []),
           problem.difficulty || "easy",
           problem.xp_reward ?? 20,
           problem.order_matters ?? false,
-          problem.schema_sql || null,
           problem.hint_xp_penalty ?? hint_xp_penalty ?? 5,
           problem.solution_xp_penalty ?? solution_xp_penalty ?? 10,
           is_published ?? false,
           tags ? `{${tags.join(",")}}` : null,
         ],
       );
-      createdProblem = problemRes.rows[0];
+      createdProblem = probRes.rows[0];
 
-      // Insert hints
-      if (problem.hints && problem.hints.length) {
+      await upsertProblemSqlVariants(
+        client,
+        createdProblem.id,
+        problem.sql_variants,
+      );
+      createdProblem.sql_variants = await fetchProblemSqlVariants(
+        client,
+        createdProblem.id,
+      );
+
+      if (problem.hints?.length) {
         for (const h of problem.hints) {
           await client.query(
-            `
-            INSERT INTO problem_hints (problem_id, hint_order, content, xp_penalty)
-            VALUES ($1,$2,$3,$4)
-          `,
+            `INSERT INTO problem_hints (problem_id, hint_order, content, xp_penalty, dialect)
+             VALUES ($1,$2,$3,$4,$5::sql_dialect)`,
             [
               createdProblem.id,
               h.hint_order ?? 1,
               h.content,
               h.xp_penalty ?? problem.hint_xp_penalty ?? 5,
+              h.dialect || null,
             ],
           );
         }
       }
 
-      // Insert solution explanation
-      if (
-        problem.solution_explanation ||
-        (problem.solution_sql && problem.solution_sql.length)
-      ) {
+      if (problem.solution_explanation) {
         await client.query(
-          `
-          INSERT INTO problem_solutions (problem_id, explanation, sql_text)
-          VALUES ($1,$2,$3)
-        `,
-          [
-            createdProblem.id,
-            problem.solution_explanation || null,
-            Array.isArray(problem.solution_sql)
-              ? problem.solution_sql[0]
-              : problem.solution_sql || "",
-          ],
+          `INSERT INTO problem_solutions (problem_id, explanation, sql_text, dialect)
+           VALUES ($1,$2,'','universal')`,
+          [createdProblem.id, problem.solution_explanation],
         );
       }
     }
@@ -345,17 +520,14 @@ router.post("/lessons", async (req, res) => {
       .json({ status: "success", data: { lesson, problem: createdProblem } });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("POST /api/content/lessons", err);
+    console.error("POST /api/admin/lessons", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     client.release();
   }
 });
 
-// PATCH /api/content/lessons/:id
-// Update lesson fields. To update the linked problem, send a `problem` key.
-// To update hints, send `problem.hints` as the FULL replacement list
-// (old hints are deleted and replaced).
+// PATCH /api/admin/lessons/:id
 router.patch("/lessons/:id", async (req, res) => {
   const id = Number(req.params.id);
   const client = await db.connect();
@@ -367,22 +539,34 @@ router.patch("/lessons/:id", async (req, res) => {
       "title",
       "content",
       "lesson_order",
-      "demo_sql",
       "xp_reward",
       "hint_xp_penalty",
       "solution_xp_penalty",
       "tags",
       "is_published",
+      "description",
+      "learning_goals",
+      "objectives",
     ];
-    const sets = [];
-    const vals = [];
+    const sets = [],
+      vals = [];
     for (const k of LESSON_ALLOWED) {
       if (req.body[k] !== undefined) {
-        const v = k === "tags" ? `{${req.body[k].join(",")}}` : req.body[k];
+        let v = req.body[k];
+        if (k === "tags" || k === "learning_goals" || k === "objectives") {
+          if (Array.isArray(v)) {
+            v = `{${v.join(",")}}`;
+          } else if (k === "tags") {
+            v = null;
+          } else {
+            v = "{}";
+          }
+        }
         vals.push(v);
-        sets.push(`${k} = $${vals.length}`);
+        sets.push(`${k}=$${vals.length}`);
       }
     }
+
     let lesson = null;
     if (sets.length) {
       vals.push(id);
@@ -397,31 +581,41 @@ router.patch("/lessons/:id", async (req, res) => {
           .json({ status: "error", message: "Lesson not found" });
       }
       lesson = rows[0];
+    } else {
+      // No lesson fields to update — still need to verify it exists
+      const check = await client.query("SELECT id FROM lessons WHERE id=$1", [
+        id,
+      ]);
+      if (!check.rows.length) {
+        await client.query("ROLLBACK");
+        return res
+          .status(404)
+          .json({ status: "error", message: "Lesson not found" });
+      }
     }
 
-    // Update linked problem if provided
+    if (req.body.demo_sql_variants !== undefined) {
+      await upsertLessonSqlVariants(client, id, req.body.demo_sql_variants);
+    }
+
     if (req.body.problem) {
       const p = req.body.problem;
       const PROB_ALLOWED = [
         "title",
         "description",
-        "starter_sql",
-        "solution_sql",
         "difficulty",
         "xp_reward",
         "order_matters",
-        "schema_sql",
         "hint_xp_penalty",
         "solution_xp_penalty",
         "is_published",
       ];
-      const psets = [];
-      const pvals = [];
+      const psets = [],
+        pvals = [];
       for (const k of PROB_ALLOWED) {
         if (p[k] !== undefined) {
-          const v = k === "solution_sql" ? JSON.stringify(p[k]) : p[k];
-          pvals.push(v);
-          psets.push(`${k} = $${pvals.length}`);
+          pvals.push(p[k]);
+          psets.push(`${k}=$${pvals.length}`);
         }
       }
       if (psets.length) {
@@ -432,7 +626,20 @@ router.patch("/lessons/:id", async (req, res) => {
         );
       }
 
-      // Replace hints if provided
+      if (p.sql_variants !== undefined) {
+        const probRow = await client.query(
+          "SELECT id FROM problems WHERE lesson_id=$1 AND is_standalone=false LIMIT 1",
+          [id],
+        );
+        if (probRow.rows.length) {
+          await upsertProblemSqlVariants(
+            client,
+            probRow.rows[0].id,
+            p.sql_variants,
+          );
+        }
+      }
+
       if (Array.isArray(p.hints)) {
         const probRow = await client.query(
           "SELECT id FROM problems WHERE lesson_id=$1 AND is_standalone=false LIMIT 1",
@@ -445,8 +652,15 @@ router.patch("/lessons/:id", async (req, res) => {
           ]);
           for (const h of p.hints) {
             await client.query(
-              `INSERT INTO problem_hints (problem_id, hint_order, content, xp_penalty) VALUES ($1,$2,$3,$4)`,
-              [pid, h.hint_order ?? 1, h.content, h.xp_penalty ?? 5],
+              `INSERT INTO problem_hints (problem_id, hint_order, content, xp_penalty, dialect)
+               VALUES ($1,$2,$3,$4,$5::sql_dialect)`,
+              [
+                pid,
+                h.hint_order ?? 1,
+                h.content,
+                h.xp_penalty ?? 5,
+                h.dialect || null,
+              ],
             );
           }
         }
@@ -457,15 +671,14 @@ router.patch("/lessons/:id", async (req, res) => {
     res.json({ status: "success", data: { lesson } });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("PATCH /api/content/lessons/:id", err);
+    console.error("PATCH /api/admin/lessons/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     client.release();
   }
 });
 
-// DELETE /api/content/lessons/:id
-// Cascades to the linked embedded problem via DB foreign key.
+// DELETE /api/admin/lessons/:id
 router.delete("/lessons/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -478,21 +691,20 @@ router.delete("/lessons/:id", async (req, res) => {
         .json({ status: "error", message: "Lesson not found" });
     res.json({ status: "success" });
   } catch (err) {
-    console.error("DELETE /api/content/lessons/:id", err);
+    console.error("DELETE /api/admin/lessons/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// STANDALONE PROBLEMS (Problems page)
+// ─── STANDALONE PROBLEMS ─────────────────────────────────────────────────────
 
-// GET /api/content/problems
-// Returns standalone problems with tag and hint count.
+// GET /api/admin/problems
 router.get("/problems", async (req, res) => {
   const { search = "", difficulty = "", page = "1", limit = "20" } = req.query;
   const pageNum = Math.max(1, Number(page));
   const limitNum = Math.min(Number(limit) || 20, 100);
   const offset = (pageNum - 1) * limitNum;
-  const conds = ["p.is_standalone = true"];
+  const conds = ["p.is_standalone=true"];
   const vals = [];
   if (search) {
     vals.push(`%${search}%`);
@@ -502,7 +714,7 @@ router.get("/problems", async (req, res) => {
   }
   if (difficulty) {
     vals.push(difficulty);
-    conds.push(`p.difficulty = $${vals.length}`);
+    conds.push(`p.difficulty=$${vals.length}`);
   }
   const where = `WHERE ${conds.join(" AND ")}`;
   try {
@@ -512,18 +724,18 @@ router.get("/problems", async (req, res) => {
     );
     const total = Number(countRes.rows[0].count);
     const dataRes = await db.query(
-      `
-      SELECT p.*,
-        COUNT(DISTINCT ph.id) AS hint_count,
-        COUNT(DISTINCT ps.id) AS solution_count
-      FROM problems p
-      LEFT JOIN problem_hints ph ON ph.problem_id = p.id
-      LEFT JOIN problem_solutions ps ON ps.problem_id = p.id
-      ${where}
-      GROUP BY p.id
-      ORDER BY p.created_at DESC
-      LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}
-    `,
+      `SELECT p.*,
+         COUNT(DISTINCT ph.id) AS hint_count,
+         COUNT(DISTINCT ps.id) AS solution_count,
+         array_agg(DISTINCT psv.dialect) FILTER (WHERE psv.id IS NOT NULL) AS dialect_coverage
+       FROM problems p
+       LEFT JOIN problem_hints ph     ON ph.problem_id=p.id
+       LEFT JOIN problem_solutions ps ON ps.problem_id=p.id
+       LEFT JOIN problem_sql_variants psv ON psv.problem_id=p.id AND psv.variant_type='solution'
+       ${where}
+       GROUP BY p.id
+       ORDER BY p.created_at DESC
+       LIMIT $${vals.length + 1} OFFSET $${vals.length + 2}`,
       [...vals, limitNum, offset],
     );
     res.json({
@@ -537,13 +749,12 @@ router.get("/problems", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("GET /api/content/problems", err);
+    console.error("GET /api/admin/problems", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// GET /api/content/problems/:id
-// Full problem detail including hints and solution.
+// GET /api/admin/problems/:id
 router.get("/problems/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -552,51 +763,51 @@ router.get("/problems/:id", async (req, res) => {
       return res
         .status(404)
         .json({ status: "error", message: "Problem not found" });
+
+    const problem = pRes.rows[0];
+    problem.sql_variants = await fetchProblemSqlVariants(db, id);
+
     const hintsRes = await db.query(
-      "SELECT * FROM problem_hints WHERE problem_id=$1 ORDER BY hint_order ASC",
+      `SELECT * FROM problem_hints WHERE problem_id=$1 ORDER BY hint_order ASC`,
       [id],
     );
     const solRes = await db.query(
-      "SELECT * FROM problem_solutions WHERE problem_id=$1",
+      `SELECT * FROM problem_solutions WHERE problem_id=$1`,
       [id],
     );
+
     res.json({
       status: "success",
-      data: {
-        problem: pRes.rows[0],
-        hints: hintsRes.rows,
-        solutions: solRes.rows,
-      },
+      data: { problem, hints: hintsRes.rows, solutions: solRes.rows },
     });
   } catch (err) {
-    console.error("GET /api/content/problems/:id", err);
+    console.error("GET /api/admin/problems/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// POST /api/content/problems
-// Create a new standalone problem.
+// POST /api/admin/problems
 router.post("/problems", async (req, res) => {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+
     const {
       title,
       description,
-      starter_sql,
-      solution_sql,
       difficulty,
       xp_reward,
       order_matters,
-      schema_sql,
       hint_xp_penalty,
       solution_xp_penalty,
       time_limit_seconds,
       tags,
       is_published,
+      sql_variants,
       hints,
       solution_explanation,
     } = req.body;
+
     if (!title || !description) {
       await client.query("ROLLBACK");
       return res.status(400).json({
@@ -604,24 +815,21 @@ router.post("/problems", async (req, res) => {
         message: "title and description are required",
       });
     }
+
     const pRes = await client.query(
-      `
-      INSERT INTO problems
-        (title, description, starter_sql, solution_sql, difficulty, xp_reward,
-         order_matters, schema_sql, hint_xp_penalty, solution_xp_penalty,
-         time_limit_seconds, tags, is_standalone, is_published)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,true,$13)
-      RETURNING *
-    `,
+      `INSERT INTO problems
+         (title, description, difficulty, xp_reward, order_matters,
+          hint_xp_penalty, solution_xp_penalty, time_limit_seconds,
+          tags, is_standalone, is_published,
+          starter_sql, solution_sql, schema_sql)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,$10,null,'[]'::jsonb,null)
+       RETURNING *`,
       [
         title,
         description,
-        starter_sql || null,
-        JSON.stringify(solution_sql || []),
         difficulty || "medium",
         xp_reward ?? 20,
         order_matters ?? false,
-        schema_sql || null,
         hint_xp_penalty ?? 5,
         solution_xp_penalty ?? 10,
         time_limit_seconds || null,
@@ -631,55 +839,57 @@ router.post("/problems", async (req, res) => {
     );
     const prob = pRes.rows[0];
 
-    if (hints && hints.length) {
+    await upsertProblemSqlVariants(client, prob.id, sql_variants);
+    prob.sql_variants = await fetchProblemSqlVariants(client, prob.id);
+
+    if (hints?.length) {
       for (const h of hints) {
         await client.query(
-          `INSERT INTO problem_hints (problem_id, hint_order, content, xp_penalty) VALUES ($1,$2,$3,$4)`,
+          `INSERT INTO problem_hints (problem_id, hint_order, content, xp_penalty, dialect)
+           VALUES ($1,$2,$3,$4,$5::sql_dialect)`,
           [
             prob.id,
             h.hint_order ?? 1,
             h.content,
             h.xp_penalty ?? hint_xp_penalty ?? 5,
+            h.dialect || null,
           ],
         );
       }
     }
-    if (solution_explanation || (solution_sql && solution_sql.length)) {
-      const sqlText = Array.isArray(solution_sql)
-        ? solution_sql[0]
-        : solution_sql || "";
+
+    if (solution_explanation) {
       await client.query(
-        `INSERT INTO problem_solutions (problem_id, explanation, sql_text) VALUES ($1,$2,$3)`,
-        [prob.id, solution_explanation || null, sqlText],
+        `INSERT INTO problem_solutions (problem_id, explanation, sql_text, dialect)
+         VALUES ($1,$2,'','universal')`,
+        [prob.id, solution_explanation],
       );
     }
+
     await client.query("COMMIT");
     res.status(201).json({ status: "success", data: prob });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("POST /api/content/problems", err);
+    console.error("POST /api/admin/problems", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     client.release();
   }
 });
 
-// PATCH /api/content/problems/:id
-// Update a standalone problem. Sending `hints` replaces all existing hints.
+// PATCH /api/admin/problems/:id
 router.patch("/problems/:id", async (req, res) => {
   const id = Number(req.params.id);
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+
     const ALLOWED = [
       "title",
       "description",
-      "starter_sql",
-      "solution_sql",
       "difficulty",
       "xp_reward",
       "order_matters",
-      "schema_sql",
       "hint_xp_penalty",
       "solution_xp_penalty",
       "time_limit_seconds",
@@ -687,18 +897,13 @@ router.patch("/problems/:id", async (req, res) => {
       "is_published",
       "is_standalone",
     ];
-    const sets = [];
-    const vals = [];
+    const sets = [],
+      vals = [];
     for (const k of ALLOWED) {
       if (req.body[k] !== undefined) {
-        const v =
-          k === "solution_sql"
-            ? JSON.stringify(req.body[k])
-            : k === "tags"
-              ? `{${req.body[k].join(",")}}`
-              : req.body[k];
+        const v = k === "tags" ? `{${req.body[k].join(",")}}` : req.body[k];
         vals.push(v);
-        sets.push(`${k} = $${vals.length}`);
+        sets.push(`${k}=$${vals.length}`);
       }
     }
     if (sets.length) {
@@ -714,27 +919,40 @@ router.patch("/problems/:id", async (req, res) => {
           .json({ status: "error", message: "Problem not found" });
       }
     }
+
+    if (req.body.sql_variants !== undefined) {
+      await upsertProblemSqlVariants(client, id, req.body.sql_variants);
+    }
+
     if (Array.isArray(req.body.hints)) {
       await client.query("DELETE FROM problem_hints WHERE problem_id=$1", [id]);
       for (const h of req.body.hints) {
         await client.query(
-          `INSERT INTO problem_hints (problem_id, hint_order, content, xp_penalty) VALUES ($1,$2,$3,$4)`,
-          [id, h.hint_order ?? 1, h.content, h.xp_penalty ?? 5],
+          `INSERT INTO problem_hints (problem_id, hint_order, content, xp_penalty, dialect)
+           VALUES ($1,$2,$3,$4,$5::sql_dialect)`,
+          [
+            id,
+            h.hint_order ?? 1,
+            h.content,
+            h.xp_penalty ?? 5,
+            h.dialect || null,
+          ],
         );
       }
     }
+
     await client.query("COMMIT");
     res.json({ status: "success" });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("PATCH /api/content/problems/:id", err);
+    console.error("PATCH /api/admin/problems/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     client.release();
   }
 });
 
-// DELETE /api/content/problems/:id
+// DELETE /api/admin/problems/:id
 router.delete("/problems/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -747,14 +965,13 @@ router.delete("/problems/:id", async (req, res) => {
         .json({ status: "error", message: "Problem not found" });
     res.json({ status: "success" });
   } catch (err) {
-    console.error("DELETE /api/content/problems/:id", err);
+    console.error("DELETE /api/admin/problems/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// BADGES
+// ─── BADGES ──────────────────────────────────────────────────────────────────
 
-// GET /api/content/badges
 router.get("/badges", async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -762,12 +979,11 @@ router.get("/badges", async (req, res) => {
     );
     res.json({ status: "success", data: rows });
   } catch (err) {
-    console.error("GET /api/content/badges", err);
+    console.error("GET /api/admin/badges", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// POST /api/content/badges
 router.post("/badges", async (req, res) => {
   const {
     name,
@@ -785,10 +1001,8 @@ router.post("/badges", async (req, res) => {
       .json({ status: "error", message: "name and code are required" });
   try {
     const { rows } = await db.query(
-      `
-      INSERT INTO badges (name, code, description, icon_url, xp_reward, rarity, criteria_json, is_active)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
-    `,
+      `INSERT INTO badges (name, code, description, icon_url, xp_reward, rarity, criteria_json, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [
         name,
         code,
@@ -802,12 +1016,11 @@ router.post("/badges", async (req, res) => {
     );
     res.status(201).json({ status: "success", data: rows[0] });
   } catch (err) {
-    console.error("POST /api/content/badges", err);
+    console.error("POST /api/admin/badges", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// PATCH /api/content/badges/:id
 router.patch("/badges/:id", async (req, res) => {
   const id = Number(req.params.id);
   const ALLOWED = [
@@ -820,14 +1033,14 @@ router.patch("/badges/:id", async (req, res) => {
     "criteria_json",
     "is_active",
   ];
-  const sets = [];
-  const vals = [];
+  const sets = [],
+    vals = [];
   for (const k of ALLOWED) {
     if (req.body[k] !== undefined) {
-      const v =
-        k === "criteria_json" ? JSON.stringify(req.body[k]) : req.body[k];
-      vals.push(v);
-      sets.push(`${k} = $${vals.length}`);
+      vals.push(
+        k === "criteria_json" ? JSON.stringify(req.body[k]) : req.body[k],
+      );
+      sets.push(`${k}=$${vals.length}`);
     }
   }
   if (!sets.length)
@@ -844,53 +1057,47 @@ router.patch("/badges/:id", async (req, res) => {
         .json({ status: "error", message: "Badge not found" });
     res.json({ status: "success", data: rows[0] });
   } catch (err) {
-    console.error("PATCH /api/content/badges/:id", err);
+    console.error("PATCH /api/admin/badges/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// DELETE /api/content/badges/:id
 router.delete("/badges/:id", async (req, res) => {
-  const id = Number(req.params.id);
   try {
-    await db.query("DELETE FROM badges WHERE id=$1", [id]);
+    await db.query("DELETE FROM badges WHERE id=$1", [Number(req.params.id)]);
     res.json({ status: "success" });
   } catch (err) {
-    console.error("DELETE /api/content/badges/:id", err);
+    console.error("DELETE /api/admin/badges/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// TRACK EXAMS
+// ─── TRACK EXAMS ─────────────────────────────────────────────────────────────
 
-// GET /api/content/exams?track_id=N
+// GET /api/admin/exams?track_id=N
 router.get("/exams", async (req, res) => {
   const { track_id } = req.query;
   const cond = track_id ? "WHERE te.track_id=$1" : "";
   const vals = track_id ? [Number(track_id)] : [];
   try {
     const { rows } = await db.query(
-      `
-      SELECT te.*, t.title AS track_title,
-        COUNT(DISTINCT eq.id) AS question_count
-      FROM track_exams te
-      JOIN tracks t ON t.id = te.track_id
-      LEFT JOIN exam_questions eq ON eq.exam_id = te.id
-      ${cond}
-      GROUP BY te.id, t.title
-      ORDER BY te.created_at DESC
-    `,
+      `SELECT te.*, t.title AS track_title, COUNT(DISTINCT eq.id) AS question_count
+       FROM track_exams te
+       JOIN tracks t ON t.id=te.track_id
+       LEFT JOIN exam_questions eq ON eq.exam_id=te.id
+       ${cond}
+       GROUP BY te.id, t.title
+       ORDER BY te.created_at DESC`,
       vals,
     );
     res.json({ status: "success", data: rows });
   } catch (err) {
-    console.error("GET /api/content/exams", err);
+    console.error("GET /api/admin/exams", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// GET /api/content/exams/:id
-// Full exam with questions and choices.
+// GET /api/admin/exams/:id
 router.get("/exams/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -901,30 +1108,36 @@ router.get("/exams/:id", async (req, res) => {
       return res
         .status(404)
         .json({ status: "error", message: "Exam not found" });
+
     const qRes = await db.query(
-      `
-      SELECT eq.*, json_agg(ec ORDER BY ec.choice_order) FILTER (WHERE ec.id IS NOT NULL) AS choices
-      FROM exam_questions eq
-      LEFT JOIN exam_choices ec ON ec.question_id = eq.id
-      WHERE eq.exam_id=$1
-      GROUP BY eq.id
-      ORDER BY eq.question_order ASC
-    `,
+      `SELECT eq.*,
+         json_agg(ec ORDER BY ec.choice_order) FILTER (WHERE ec.id IS NOT NULL) AS choices
+       FROM exam_questions eq
+       LEFT JOIN exam_choices ec ON ec.question_id=eq.id
+       WHERE eq.exam_id=$1
+       GROUP BY eq.id
+       ORDER BY eq.question_order ASC`,
       [id],
     );
-    res.json({
-      status: "success",
-      data: { exam: examRes.rows[0], questions: qRes.rows },
-    });
+
+    const questions = qRes.rows;
+    for (const q of questions) {
+      if (q.question_type === "sql" && q.linked_problem_id) {
+        q.linked_problem_sql_variants = await fetchProblemSqlVariants(
+          db,
+          q.linked_problem_id,
+        );
+      }
+    }
+
+    res.json({ status: "success", data: { exam: examRes.rows[0], questions } });
   } catch (err) {
-    console.error("GET /api/content/exams/:id", err);
+    console.error("GET /api/admin/exams/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// POST /api/content/exams
-// Create a new exam for a track (one exam per track enforced by UNIQUE constraint).
-// Body: { track_id, title, description, time_limit_seconds, pass_threshold, cert_threshold, is_published }
+// POST /api/admin/exams
 router.post("/exams", async (req, res) => {
   const {
     track_id,
@@ -941,10 +1154,8 @@ router.post("/exams", async (req, res) => {
       .json({ status: "error", message: "track_id and title are required" });
   try {
     const { rows } = await db.query(
-      `
-      INSERT INTO track_exams (track_id, title, description, time_limit_seconds, pass_threshold, cert_threshold, is_published)
-      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
-    `,
+      `INSERT INTO track_exams (track_id, title, description, time_limit_seconds, pass_threshold, cert_threshold, is_published)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [
         track_id,
         title,
@@ -961,12 +1172,12 @@ router.post("/exams", async (req, res) => {
       return res
         .status(409)
         .json({ status: "error", message: "This track already has an exam" });
-    console.error("POST /api/content/exams", err);
+    console.error("POST /api/admin/exams", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// PATCH /api/content/exams/:id
+// PATCH /api/admin/exams/:id
 router.patch("/exams/:id", async (req, res) => {
   const id = Number(req.params.id);
   const ALLOWED = [
@@ -978,8 +1189,8 @@ router.patch("/exams/:id", async (req, res) => {
     "is_published",
     "total_points",
   ];
-  const sets = [];
-  const vals = [];
+  const sets = [],
+    vals = [];
   for (const k of ALLOWED) {
     if (req.body[k] !== undefined) {
       vals.push(req.body[k]);
@@ -1000,49 +1211,85 @@ router.patch("/exams/:id", async (req, res) => {
         .json({ status: "error", message: "Exam not found" });
     res.json({ status: "success", data: rows[0] });
   } catch (err) {
-    console.error("PATCH /api/content/exams/:id", err);
+    console.error("PATCH /api/admin/exams/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 });
 
-// POST /api/content/exams/:id/questions
-// Add a question (and its choices) to an exam.
-// Body: { question_order, question_type, question_text, points, linked_problem_id?, choices: [{choice_text, is_correct, choice_order}] }
+// POST /api/admin/exams/:examId/questions
 router.post("/exams/:examId/questions", async (req, res) => {
   const examId = Number(req.params.examId);
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+
     const {
       question_order,
       question_type,
       question_text,
       points,
       linked_problem_id,
+      sql_variants,
       choices,
     } = req.body;
+
     if (!question_text) {
       await client.query("ROLLBACK");
       return res
         .status(400)
         .json({ status: "error", message: "question_text required" });
     }
+
+    // Verify the exam exists
+    const examCheck = await client.query(
+      "SELECT id FROM track_exams WHERE id=$1",
+      [examId],
+    );
+    if (!examCheck.rows.length) {
+      await client.query("ROLLBACK");
+      return res
+        .status(404)
+        .json({ status: "error", message: "Exam not found" });
+    }
+
+    const qType = question_type || "multiple_choice";
+    let resolvedLinkedProblemId = linked_problem_id || null;
+
+    // For SQL questions without an explicit linked_problem_id, create an anonymous problem
+    if (qType === "sql" && !linked_problem_id && sql_variants) {
+      const probRes = await client.query(
+        `INSERT INTO problems
+           (title, description, difficulty, xp_reward, order_matters,
+            hint_xp_penalty, solution_xp_penalty,
+            is_standalone, is_published,
+            starter_sql, solution_sql, schema_sql)
+         VALUES ($1,$2,'medium',0,false,5,10,false,true,null,'[]'::jsonb,null)
+         RETURNING *`,
+        [`Exam ${examId} – Q${question_order ?? 1}`, question_text],
+      );
+      resolvedLinkedProblemId = probRes.rows[0].id;
+      await upsertProblemSqlVariants(
+        client,
+        resolvedLinkedProblemId,
+        sql_variants,
+      );
+    }
+
     const qRes = await client.query(
-      `
-      INSERT INTO exam_questions (exam_id, question_order, question_type, question_text, points, linked_problem_id)
-      VALUES ($1,$2,$3,$4,$5,$6) RETURNING *
-    `,
+      `INSERT INTO exam_questions (exam_id, question_order, question_type, question_text, points, linked_problem_id)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [
         examId,
         question_order ?? 1,
-        question_type || "multiple_choice",
+        qType,
         question_text,
         points ?? 10,
-        linked_problem_id || null,
+        resolvedLinkedProblemId,
       ],
     );
     const q = qRes.rows[0];
-    if (choices && choices.length) {
+
+    if (choices?.length) {
       for (const c of choices) {
         await client.query(
           `INSERT INTO exam_choices (question_id, choice_text, is_correct, choice_order) VALUES ($1,$2,$3,$4)`,
@@ -1050,24 +1297,27 @@ router.post("/exams/:examId/questions", async (req, res) => {
         );
       }
     }
-    // Recalculate total_points on the exam
+
+    // Recalculate total_points
     await client.query(
-      `UPDATE track_exams SET total_points = (SELECT COALESCE(SUM(points),0) FROM exam_questions WHERE exam_id=$1) WHERE id=$1`,
+      `UPDATE track_exams
+       SET total_points=(SELECT COALESCE(SUM(points),0) FROM exam_questions WHERE exam_id=$1)
+       WHERE id=$1`,
       [examId],
     );
+
     await client.query("COMMIT");
     res.status(201).json({ status: "success", data: q });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("POST /api/content/exams/:id/questions", err);
+    console.error("POST /api/admin/exams/:id/questions", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     client.release();
   }
 });
 
-// DELETE /api/content/questions/:id
-// Deletes a question and recalculates exam total_points.
+// DELETE /api/admin/questions/:id
 router.delete("/questions/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -1078,15 +1328,22 @@ router.delete("/questions/:id", async (req, res) => {
     if (qRow.rows.length) {
       const examId = qRow.rows[0].exam_id;
       await db.query(
-        `UPDATE track_exams SET total_points = (SELECT COALESCE(SUM(points),0) FROM exam_questions WHERE exam_id=$1) WHERE id=$1`,
+        `UPDATE track_exams
+         SET total_points=(SELECT COALESCE(SUM(points),0) FROM exam_questions WHERE exam_id=$1)
+         WHERE id=$1`,
         [examId],
       );
     }
     res.json({ status: "success" });
   } catch (err) {
-    console.error("DELETE /api/content/questions/:id", err);
+    console.error("DELETE /api/admin/questions/:id", err);
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
+});
+
+// GET /api/admin/dialects
+router.get("/dialects", (_req, res) => {
+  res.json({ status: "success", data: SUPPORTED_DIALECTS });
 });
 
 export default router;

@@ -74,7 +74,156 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-// Matches the difficulty colors used on the student side
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+const SUPPORTED_DIALECTS = [
+  "universal",
+  "postgres",
+  "mysql",
+  "sqlite",
+] as const;
+
+// =============================================================================
+// MULTI-DIALECT SQL EDITORS (NEW)
+// =============================================================================
+
+function MultiDialectSqlEditor({
+  title,
+  value = {},
+  onChange,
+  placeholder = "SELECT * FROM ...",
+  isSolution = false,
+}: {
+  title: string;
+  value: Record<string, string | string[]>;
+  onChange: (newValue: Record<string, string | string[]>) => void;
+  placeholder?: string;
+  isSolution?: boolean;
+}) {
+  const [activeDialect, setActiveDialect] = useState<
+    "universal" | "postgres" | "mysql" | "sqlite"
+  >("universal");
+
+  return (
+    <div className="space-y-3">
+      <Label className="text-xs flex items-center gap-2">
+        {title}
+        <span className="text-[10px] font-normal text-muted-foreground">
+          (per dialect)
+        </span>
+      </Label>
+
+      <div className="flex border border-border rounded-lg p-1 bg-muted/40">
+        {SUPPORTED_DIALECTS.map((dialect) => (
+          <button
+            key={dialect}
+            type="button"
+            onClick={() => setActiveDialect(dialect)}
+            className={cn(
+              "flex-1 px-4 py-2 text-xs font-medium rounded-md transition-all",
+              activeDialect === dialect
+                ? "bg-background shadow-sm border border-border text-foreground"
+                : "hover:bg-background/70 text-muted-foreground",
+            )}
+          >
+            {dialect === "universal" ? "Universal" : dialect}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        {isSolution ? (
+          <SolutionEditor
+            solutions={(value[activeDialect] as string[]) || []}
+            onSolutionsChange={(sols) =>
+              onChange({ ...value, [activeDialect]: sols })
+            }
+          />
+        ) : (
+          <Textarea
+            className="text-xs font-mono resize-none min-h-[120px]"
+            value={(value[activeDialect] as string) || ""}
+            onChange={(e) =>
+              onChange({ ...value, [activeDialect]: e.target.value })
+            }
+            placeholder={placeholder}
+          />
+        )}
+      </div>
+
+      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+        {activeDialect === "universal"
+          ? "Works across Postgres • MySQL • SQLite"
+          : `Specific syntax / functions for ${activeDialect.toUpperCase()}`}
+      </p>
+    </div>
+  );
+}
+
+function SolutionEditor({
+  solutions = [],
+  onSolutionsChange,
+}: {
+  solutions: string[];
+  onSolutionsChange: (solutions: string[]) => void;
+}) {
+  const addSolution = () => onSolutionsChange([...solutions, ""]);
+  const updateSolution = (index: number, sql: string) => {
+    const copy = [...solutions];
+    copy[index] = sql;
+    onSolutionsChange(copy);
+  };
+  const removeSolution = (index: number) => {
+    onSolutionsChange(solutions.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-3">
+      {solutions.map((sql, index) => (
+        <div key={index} className="flex gap-2">
+          <Textarea
+            className="flex-1 text-xs font-mono resize-none min-h-[80px]"
+            value={sql}
+            onChange={(e) => updateSolution(index, e.target.value)}
+            placeholder={`Accepted solution #${index + 1}`}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 mt-1 shrink-0"
+            onClick={() => removeSolution(index)}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-full h-8 text-xs gap-1.5"
+        onClick={addSolution}
+      >
+        <Plus className="w-3 h-3" />
+        Add another accepted solution for this dialect
+      </Button>
+
+      {solutions.length === 0 && (
+        <p className="text-xs italic text-muted-foreground text-center py-6 border border-dashed rounded-lg">
+          No accepted solutions yet for this dialect.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// UPDATED HELPERS
+// =============================================================================
+
 function DifficultyBadge({ d }: { d: string }) {
   return (
     <span
@@ -91,7 +240,7 @@ function DifficultyBadge({ d }: { d: string }) {
     </span>
   );
 }
-// Published status pill
+
 function StatusPill({ published }: { published: boolean }) {
   return (
     <span
@@ -106,7 +255,7 @@ function StatusPill({ published }: { published: boolean }) {
     </span>
   );
 }
-// Simple confirmation dialog reused across the page
+
 function ConfirmDialog({
   open,
   onClose,
@@ -160,27 +309,40 @@ function ConfirmDialog({
     </Dialog>
   );
 }
-// Hint row editor — used in both lesson and standalone problem forms
+
 function HintEditor({
   hints,
   onChange,
 }: {
-  hints: { hint_order: number; content: string; xp_penalty: number }[];
+  hints: {
+    hint_order: number;
+    content: string;
+    xp_penalty: number;
+    dialect?: string | null;
+  }[];
   onChange: (h: typeof hints) => void;
 }) {
   const add = () =>
     onChange([
       ...hints,
-      { hint_order: hints.length + 1, content: "", xp_penalty: 5 },
+      {
+        hint_order: hints.length + 1,
+        content: "",
+        xp_penalty: 5,
+        dialect: null,
+      },
     ]);
+
   const remove = (i: number) =>
     onChange(
       hints
         .filter((_, idx) => idx !== i)
         .map((h, idx) => ({ ...h, hint_order: idx + 1 })),
     );
-  const update = (i: number, key: string, val: string | number) =>
+
+  const update = (i: number, key: string, val: any) =>
     onChange(hints.map((h, idx) => (idx === i ? { ...h, [key]: val } : h)));
+
   return (
     <div className="space-y-2">
       {hints.map((h, i) => (
@@ -192,20 +354,47 @@ function HintEditor({
               value={h.content}
               onChange={(e) => update(i, "content", e.target.value)}
             />
-            <div className="flex items-center gap-2">
-              <Label className="text-[10px] text-muted-foreground shrink-0">
-                XP penalty
-              </Label>
-              <Input
-                type="number"
-                className="h-6 text-xs w-16"
-                min={0}
-                max={100}
-                value={h.xp_penalty}
-                onChange={(e) =>
-                  update(i, "xp_penalty", Number(e.target.value))
-                }
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <Label className="text-[10px] text-muted-foreground shrink-0">
+                  XP penalty
+                </Label>
+                <Input
+                  type="number"
+                  className="h-6 text-xs w-16"
+                  min={0}
+                  max={100}
+                  value={h.xp_penalty}
+                  onChange={(e) =>
+                    update(i, "xp_penalty", Number(e.target.value))
+                  }
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-[10px] text-muted-foreground shrink-0">
+                  Dialect
+                </Label>
+                <Select
+                  value={h.dialect || "universal"}
+                  onValueChange={(v) =>
+                    update(i, "dialect", v === "universal" ? null : v)
+                  }
+                >
+                  <SelectTrigger className="h-6 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="universal" className="text-xs">
+                      Universal
+                    </SelectItem>
+                    {SUPPORTED_DIALECTS.slice(1).map((d) => (
+                      <SelectItem key={d} value={d} className="text-xs">
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <Button
@@ -229,7 +418,87 @@ function HintEditor({
     </div>
   );
 }
-// Shared problem form fields — reused for both lesson-embedded and standalone problems
+
+function ArrayListEditor({
+  label,
+  value = [],
+  onChange,
+  placeholder = "Add an item...",
+}: {
+  label: string;
+  value: string[];
+  onChange: (newValue: string[]) => void;
+  placeholder?: string;
+}) {
+  const [inputValue, setInputValue] = useState("");
+  const handleAdd = useCallback(() => {
+    const trimmed = inputValue.trim();
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+      setInputValue("");
+    }
+  }, [inputValue, value, onChange]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAdd();
+    }
+  };
+
+  const removeItem = (index: number) => {
+    onChange(value.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <div className="flex gap-2">
+        <Input
+          className="h-8 text-xs flex-1"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 text-xs gap-1.5 px-3"
+          onClick={handleAdd}
+        >
+          <Plus className="w-3 h-3" />
+          Add
+        </Button>
+      </div>
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {value.map((item, i) => (
+            <Badge
+              key={i}
+              variant="secondary"
+              className="text-[10px] px-2.5 py-px flex items-center gap-1"
+            >
+              {item}
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-rose-500 text-xs leading-none ml-1"
+                onClick={() => removeItem(i)}
+              >
+                ✕
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      {value.length === 0 && (
+        <p className="text-[10px] italic text-muted-foreground">
+          No items added yet.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function ProblemFields({
   form,
@@ -238,28 +507,24 @@ export function ProblemFields({
   form: any;
   onChange: (key: string, val: any) => void;
 }) {
-  // Local state to handle the tag input field before it becomes a badge
   const [tagInput, setTagInput] = useState("");
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "," || e.key === "Enter") {
-      e.preventDefault(); // Prevent typing the comma or submitting a form
+      e.preventDefault();
       const newTag = tagInput.trim();
-
       if (newTag) {
         const currentTags = form.tags || [];
-        // Prevent duplicates
         if (!currentTags.includes(newTag)) {
           onChange("tags", [...currentTags, newTag]);
         }
       }
-      // Clear the input after creating the badge
       setTagInput("");
     }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">Title</Label>
@@ -304,37 +569,35 @@ export function ProblemFields({
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-xs">
-          Schema SQL (CREATE TABLE setup for the editor sandbox)
-        </Label>
-        <Textarea
-          className="text-xs font-mono resize-none min-h-[80px]"
-          value={form.schema_sql || ""}
-          onChange={(e) => onChange("schema_sql", e.target.value)}
-          placeholder="CREATE TABLE employees (...);"
-        />
-      </div>
+      <MultiDialectSqlEditor
+        title="Schema SQL (CREATE TABLE setup for the editor sandbox)"
+        value={form.sql_variants?.schema || {}}
+        onChange={(v) => {
+          const current = form.sql_variants || {};
+          onChange("sql_variants", { ...current, schema: v });
+        }}
+        placeholder="CREATE TABLE employees (...);"
+      />
 
-      <div className="space-y-1.5">
-        <Label className="text-xs">Starter SQL (pre-loaded in editor)</Label>
-        <Textarea
-          className="text-xs font-mono resize-none min-h-[60px]"
-          value={form.starter_sql || ""}
-          onChange={(e) => onChange("starter_sql", e.target.value)}
-          placeholder="SELECT * FROM ..."
-        />
-      </div>
+      <MultiDialectSqlEditor
+        title="Starter SQL (pre-loaded in editor)"
+        value={form.sql_variants?.starter || {}}
+        onChange={(v) => {
+          const current = form.sql_variants || {};
+          onChange("sql_variants", { ...current, starter: v });
+        }}
+        placeholder="SELECT * FROM ..."
+      />
 
-      <div className="space-y-1.5">
-        <Label className="text-xs">Solution SQL (accepted answer)</Label>
-        <Textarea
-          className="text-xs font-mono resize-none min-h-[60px]"
-          value={form.solution_sql_text || ""}
-          onChange={(e) => onChange("solution_sql_text", e.target.value)}
-          placeholder="SELECT ..."
-        />
-      </div>
+      <MultiDialectSqlEditor
+        title="Solution SQL (all accepted answers)"
+        value={form.sql_variants?.solution || {}}
+        onChange={(v) => {
+          const current = form.sql_variants || {};
+          onChange("sql_variants", { ...current, solution: v });
+        }}
+        isSolution
+      />
 
       <div className="space-y-1.5">
         <Label className="text-xs">
@@ -348,7 +611,6 @@ export function ProblemFields({
         />
       </div>
 
-      {/* Fixed grid with better label wrapping and bottom alignment for inputs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="flex flex-col justify-end h-full space-y-1.5">
           <Label className="text-xs">XP reward</Label>
@@ -400,7 +662,6 @@ export function ProblemFields({
         </div>
       </div>
 
-      {/* Improved Tags input with live preview and keydown listener */}
       <div className="space-y-1.5">
         <Label className="text-xs">Tags (Type and press comma)</Label>
         <Input
@@ -410,7 +671,6 @@ export function ProblemFields({
           onKeyDown={handleTagKeyDown}
           placeholder="e.g. SELECT, JOIN..."
         />
-        {/* Live preview as nice badges */}
         {form.tags && form.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {form.tags.map((tag: string, i: number) => (
@@ -445,10 +705,22 @@ export function ProblemFields({
           onChange={(v: any) => onChange("hints", v)}
         />
       </div>
+
+      {/* === PUBLISHED SWITCH (added) === */}
+      <div className="flex items-center gap-2">
+        <Switch
+          checked={!!form.is_published}
+          onCheckedChange={(v) => onChange("is_published", v)}
+          id="problem_published"
+        />
+        <Label htmlFor="problem_published" className="text-xs cursor-pointer">
+          Published
+        </Label>
+      </div>
     </div>
   );
 }
-// Lesson form fields — the lesson body is a markdown editor
+
 function LessonFields({
   form,
   onChange,
@@ -479,6 +751,33 @@ function LessonFields({
           />
         </div>
       </div>
+
+      {/* === NEW FIELDS === */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Description</Label>
+        <Textarea
+          className="text-xs resize-none min-h-[80px]"
+          value={form.description || ""}
+          onChange={(e) => onChange("description", e.target.value)}
+          placeholder="Short description of this lesson (shown in previews or overview)"
+        />
+      </div>
+
+      <ArrayListEditor
+        label="Learning Goals (what the user will learn)"
+        value={form.learning_goals || []}
+        onChange={(v) => onChange("learning_goals", v)}
+        placeholder="e.g. Master basic SELECT statements"
+      />
+
+      <ArrayListEditor
+        label="Objectives"
+        value={form.objectives || []}
+        onChange={(v) => onChange("objectives", v)}
+        placeholder="e.g. Practice writing JOIN queries"
+      />
+      {/* === END NEW FIELDS === */}
+
       <div className="space-y-1.5">
         <Label className="text-xs">Lesson content (Markdown)</Label>
         <p className="text-[10px] text-muted-foreground">
@@ -493,17 +792,14 @@ function LessonFields({
           spellCheck={false}
         />
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs">
-          Demo SQL (pre-loaded in editor when lesson opens)
-        </Label>
-        <Textarea
-          className="text-xs font-mono resize-none min-h-[60px]"
-          value={form.demo_sql || ""}
-          onChange={(e) => onChange("demo_sql", e.target.value)}
-          placeholder="-- Try running this query\nSELECT * FROM employees;"
-        />
-      </div>
+
+      <MultiDialectSqlEditor
+        title="Demo SQL (pre-loaded in editor when lesson opens)"
+        value={form.demo_sql_variants || {}}
+        onChange={(v) => onChange("demo_sql_variants", v)}
+        placeholder="-- Try running this query\nSELECT * FROM employees;"
+      />
+
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">XP reward</Label>
@@ -540,6 +836,7 @@ function LessonFields({
           />
         </div>
       </div>
+
       <div className="flex items-center gap-2">
         <Switch
           checked={!!form.is_published}
@@ -553,7 +850,7 @@ function LessonFields({
     </div>
   );
 }
-// Badge form dialog
+
 function BadgeFormDialog({
   open,
   onClose,
@@ -568,6 +865,7 @@ function BadgeFormDialog({
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
   const upd = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+
   useEffect(() => {
     if (open)
       setForm(
@@ -589,6 +887,7 @@ function BadgeFormDialog({
             },
       );
   }, [open, initial]);
+
   const save = async () => {
     setSaving(true);
     const payload = {
@@ -628,6 +927,7 @@ function BadgeFormDialog({
       setSaving(false);
     }
   };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
@@ -790,7 +1090,7 @@ function BadgeFormDialog({
     </Dialog>
   );
 }
-// Exam question row editor used inside the exam dialog
+
 function ExamQuestionRow({ q, onDelete }: { q: any; onDelete: () => void }) {
   return (
     <div className="flex items-start gap-3 p-3 rounded-md border border-border bg-muted/20 group">
@@ -824,7 +1124,7 @@ function ExamQuestionRow({ q, onDelete }: { q: any; onDelete: () => void }) {
     </div>
   );
 }
-// Exam form dialog — creates/edits a track exam and its questions
+
 function ExamDialog({
   open,
   onClose,
@@ -844,10 +1144,12 @@ function ExamDialog({
     question_type: "multiple_choice",
     points: 10,
     choices: [{ choice_text: "", is_correct: false, choice_order: 1 }],
+    sql_variants: { starter: {}, schema: {}, solution: {} },
   });
   const [saving, setSaving] = useState(false);
   const [addingQ, setAddingQ] = useState(false);
   const [showQForm, setShowQForm] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     if (initial) {
@@ -877,6 +1179,7 @@ function ExamDialog({
       setQuestions([]);
     }
   }, [open, initial]);
+
   const saveMeta = async () => {
     setSaving(true);
     try {
@@ -904,6 +1207,7 @@ function ExamDialog({
       setSaving(false);
     }
   };
+
   const addQuestion = async () => {
     if (!initial) {
       toast.error("Save exam metadata first");
@@ -911,7 +1215,19 @@ function ExamDialog({
     }
     setAddingQ(true);
     try {
-      const payload = { ...newQ, question_order: questions.length + 1 };
+      const payload: any = {
+        question_order: questions.length + 1,
+        question_type: newQ.question_type,
+        question_text: newQ.question_text,
+        points: newQ.points,
+      };
+
+      if (newQ.question_type === "sql") {
+        payload.sql_variants = newQ.sql_variants;
+      } else if (newQ.choices?.length) {
+        payload.choices = newQ.choices;
+      }
+
       const res = await fetch(`/api/content/exams/${initial.id}/questions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -925,6 +1241,7 @@ function ExamDialog({
         question_type: "multiple_choice",
         points: 10,
         choices: [{ choice_text: "", is_correct: false, choice_order: 1 }],
+        sql_variants: { starter: {}, schema: {}, solution: {} },
       });
       setShowQForm(false);
       toast.success("Question added");
@@ -934,6 +1251,7 @@ function ExamDialog({
       setAddingQ(false);
     }
   };
+
   const deleteQuestion = async (qId: number) => {
     await fetch(`/api/content/questions/${qId}`, {
       method: "DELETE",
@@ -941,8 +1259,10 @@ function ExamDialog({
     });
     setQuestions((q) => q.filter((x) => x.id !== qId));
   };
+
   const updNewQ = (k: string, v: any) =>
     setNewQ((q: any) => ({ ...q, [k]: v }));
+
   const updChoice = (i: number, k: string, v: any) =>
     setNewQ((q: any) => ({
       ...q,
@@ -950,6 +1270,7 @@ function ExamDialog({
         idx === i ? { ...c, [k]: v } : c,
       ),
     }));
+
   const addChoice = () =>
     setNewQ((q: any) => ({
       ...q,
@@ -962,11 +1283,13 @@ function ExamDialog({
         },
       ],
     }));
+
   const removeChoice = (i: number) =>
     setNewQ((q: any) => ({
       ...q,
       choices: q.choices.filter((_: any, idx: number) => idx !== i),
     }));
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
@@ -982,7 +1305,6 @@ function ExamDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-5">
-          {/* Exam metadata */}
           <div className="space-y-3">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
               Exam Settings
@@ -1073,7 +1395,6 @@ function ExamDialog({
             </div>
           </div>
           <Separator />
-          {/* Questions list */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -1108,7 +1429,7 @@ function ExamDialog({
               </p>
             )}
             {showQForm && (
-              <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/10">
+              <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/10">
                 <p className="text-xs font-medium">New question</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -1127,7 +1448,7 @@ function ExamDialog({
                         <SelectItem value="true_false" className="text-xs">
                           True / False
                         </SelectItem>
-                        <SelectItem value="sql_problem" className="text-xs">
+                        <SelectItem value="sql" className="text-xs">
                           SQL Problem
                         </SelectItem>
                       </SelectContent>
@@ -1154,6 +1475,7 @@ function ExamDialog({
                     onChange={(e) => updNewQ("question_text", e.target.value)}
                   />
                 </div>
+
                 {(newQ.question_type === "multiple_choice" ||
                   newQ.question_type === "true_false") && (
                   <div className="space-y-2">
@@ -1193,6 +1515,52 @@ function ExamDialog({
                     </Button>
                   </div>
                 )}
+
+                {newQ.question_type === "sql" && (
+                  <div className="space-y-6 pt-4 border-t border-border">
+                    <MultiDialectSqlEditor
+                      title="Schema SQL"
+                      value={newQ.sql_variants?.schema || {}}
+                      onChange={(v) =>
+                        setNewQ((q: any) => ({
+                          ...q,
+                          sql_variants: {
+                            ...(q.sql_variants || {}),
+                            schema: v,
+                          },
+                        }))
+                      }
+                    />
+                    <MultiDialectSqlEditor
+                      title="Starter SQL"
+                      value={newQ.sql_variants?.starter || {}}
+                      onChange={(v) =>
+                        setNewQ((q: any) => ({
+                          ...q,
+                          sql_variants: {
+                            ...(q.sql_variants || {}),
+                            starter: v,
+                          },
+                        }))
+                      }
+                    />
+                    <MultiDialectSqlEditor
+                      title="Solution SQL"
+                      value={newQ.sql_variants?.solution || {}}
+                      onChange={(v) =>
+                        setNewQ((q: any) => ({
+                          ...q,
+                          sql_variants: {
+                            ...(q.sql_variants || {}),
+                            solution: v,
+                          },
+                        }))
+                      }
+                      isSolution
+                    />
+                  </div>
+                )}
+
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="ghost"
@@ -1242,7 +1610,7 @@ function ExamDialog({
     </Dialog>
   );
 }
-// Lesson + its embedded problem — full form dialog
+
 function LessonDialog({
   open,
   onClose,
@@ -1261,7 +1629,8 @@ function LessonDialog({
   const [lessonForm, setLessonForm] = useState<any>({});
   const [problemForm, setProblemForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState("lesson");
+  const [tab, setTab] = useState<"lesson" | "problem">("lesson");
+
   useEffect(() => {
     if (!open) return;
     if (initial) {
@@ -1269,24 +1638,29 @@ function LessonDialog({
         .then((r) => r.json())
         .then((d) => {
           if (d.status === "success") {
+            const { lesson, problem } = d.data;
             setLessonForm({
-              ...d.data.lesson,
-              track_id: d.data.lesson.track_id,
+              ...lesson,
+              track_id: lesson.track_id,
+              demo_sql_variants: lesson.demo_sql_variants || {},
+              description: lesson.description ?? "",
+              learning_goals: lesson.learning_goals ?? [],
+              objectives: lesson.objectives ?? [],
             });
-            if (d.data.problem) {
-              const p = d.data.problem;
+            if (problem) {
               setProblemForm({
-                ...p,
-                solution_sql_text: Array.isArray(p.solution_sql)
-                  ? p.solution_sql[0]
-                  : typeof p.solution_sql === "string"
-                    ? p.solution_sql
-                    : "",
-                hints: p.hints_arr
-                  ? p.hints_arr.map((c: string, i: number) => ({
+                ...problem,
+                sql_variants: problem.sql_variants || {
+                  starter: {},
+                  schema: {},
+                  solution: {},
+                },
+                hints: problem.hints_arr
+                  ? problem.hints_arr.map((content: string, i: number) => ({
                       hint_order: i + 1,
-                      content: c,
+                      content,
                       xp_penalty: 5,
+                      dialect: null,
                     }))
                   : [],
               });
@@ -1302,6 +1676,10 @@ function LessonDialog({
         hint_xp_penalty: 5,
         solution_xp_penalty: 10,
         is_published: false,
+        demo_sql_variants: {},
+        description: "",
+        learning_goals: [],
+        objectives: [],
       });
       setProblemForm({
         difficulty: "easy",
@@ -1311,25 +1689,27 @@ function LessonDialog({
         is_published: false,
         order_matters: false,
         hints: [],
+        sql_variants: { starter: {}, schema: {}, solution: {} },
       });
     }
     setTab("lesson");
   }, [open, initial, trackId]);
+
   const updLesson = (k: string, v: any) =>
     setLessonForm((f: any) => ({ ...f, [k]: v }));
   const updProblem = (k: string, v: any) =>
     setProblemForm((f: any) => ({ ...f, [k]: v }));
+
   const save = async () => {
     setSaving(true);
     try {
       const payload = {
         ...lessonForm,
+        demo_sql_variants: lessonForm.demo_sql_variants || {},
         problem: {
           ...problemForm,
           title: problemForm.title || lessonForm.title,
-          solution_sql: problemForm.solution_sql_text
-            ? [problemForm.solution_sql_text]
-            : [],
+          sql_variants: problemForm.sql_variants || {},
         },
       };
       const url = initial
@@ -1352,6 +1732,7 @@ function LessonDialog({
       setSaving(false);
     }
   };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
@@ -1439,7 +1820,7 @@ function LessonDialog({
     </Dialog>
   );
 }
-// Standalone problem dialog
+
 function ProblemDialog({
   open,
   onClose,
@@ -1453,6 +1834,7 @@ function ProblemDialog({
 }) {
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     if (initial) {
@@ -1463,9 +1845,13 @@ function ProblemDialog({
             const p = d.data.problem;
             setForm({
               ...p,
-              solution_sql_text: d.data.solutions?.[0]?.sql_text || "",
+              sql_variants: p.sql_variants || {
+                starter: {},
+                schema: {},
+                solution: {},
+              },
+              hints: d.data.hints?.map((h: any) => ({ ...h })) || [],
               solution_explanation: d.data.solutions?.[0]?.explanation || "",
-              hints: d.data.hints.map((h: any) => ({ ...h })),
             });
           }
         })
@@ -1480,16 +1866,19 @@ function ProblemDialog({
         is_standalone: true,
         order_matters: false,
         hints: [],
+        sql_variants: { starter: {}, schema: {}, solution: {} },
       });
     }
   }, [open, initial]);
+
   const upd = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+
   const save = async () => {
     setSaving(true);
     try {
       const payload = {
         ...form,
-        solution_sql: form.solution_sql_text ? [form.solution_sql_text] : [],
+        sql_variants: form.sql_variants || {},
         is_standalone: true,
       };
       const url = initial
@@ -1512,6 +1901,7 @@ function ProblemDialog({
       setSaving(false);
     }
   };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
@@ -1550,7 +1940,6 @@ function ProblemDialog({
   );
 }
 
-// Track form dialog — full CREATE/EDIT (adapted to match all other dialogs in the file)
 function TrackDialog({
   open,
   onClose,
@@ -1608,19 +1997,16 @@ function TrackDialog({
         ? `/api/content/tracks/${initial.id}`
         : "/api/content/tracks";
       const meth = initial ? "PATCH" : "POST";
-
       const res = await fetch(url, {
         method: meth,
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Save failed");
       }
-
       onSaved();
       onClose();
       toast.success(initial ? "Track updated" : "Track created");
@@ -1762,7 +2148,6 @@ function TrackDialog({
   );
 }
 
-// Main page
 export default function AdminContent() {
   const [tab, setTab] = useState("tracks");
   const [tracks, setTracks] = useState<any[]>([]);
@@ -1780,19 +2165,27 @@ export default function AdminContent() {
   const [selectedTrack, setSelectedTrack] = useState<number | null>(null);
   const [expandedTrack, setExpandedTrack] = useState<number | null>(null);
 
-  // Dialog states
   const [lessonDialog, setLessonDialog] = useState<{
     open: boolean;
     initial: any | null;
-  }>({ open: false, initial: null });
+  }>({
+    open: false,
+    initial: null,
+  });
   const [problemDialog, setProblemDialog] = useState<{
     open: boolean;
     initial: any | null;
-  }>({ open: false, initial: null });
+  }>({
+    open: false,
+    initial: null,
+  });
   const [badgeDialog, setBadgeDialog] = useState<{
     open: boolean;
     initial: any | null;
-  }>({ open: false, initial: null });
+  }>({
+    open: false,
+    initial: null,
+  });
   const [examDialog, setExamDialog] = useState<{
     open: boolean;
     initial: any | null;
@@ -1801,8 +2194,10 @@ export default function AdminContent() {
   const [trackDialog, setTrackDialog] = useState<{
     open: boolean;
     initial: any | null;
-  }>({ open: false, initial: null });
-
+  }>({
+    open: false,
+    initial: null,
+  });
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
     type: string;
@@ -2708,13 +3103,14 @@ export default function AdminContent() {
             </Card>
           </TabsContent>
         </Tabs>
+
         <Separator className="my-8" />
         <p className="text-center text-[11px] text-muted-foreground pb-4">
           Vorn Admin · built for SQL mastery
         </p>
       </main>
 
-      {/* Dialogs */}
+      {/* DIALOGS */}
       <LessonDialog
         open={lessonDialog.open}
         onClose={() => setLessonDialog({ open: false, initial: null })}
@@ -2754,6 +3150,7 @@ export default function AdminContent() {
         initial={trackDialog.initial}
         onSaved={fetchTracks}
       />
+
       {deleteConfirm && (
         <ConfirmDialog
           open={deleteConfirm.open}

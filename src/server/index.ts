@@ -12,9 +12,16 @@ import submissionsRouter from "./routes/submissionsRouter.js";
 import lessonsRouter from "./routes/lessonsRouter.js";
 import problemsRouter from "./routes/problemsRouter.js";
 import adminRouter from "./routes/adminRouter.js";
-import leaderboardRouter from "./routes/leaderboard.js";
 import profileRouter from "./routes/profileRouter.js";
 import adminContentRouter from "./routes/adminContentRouter.js";
+import tracksRouter from "./routes/tracksRouter.js";
+import editorRoutes from "./routes/editorRoutes.js";
+import examRouter from "./routes/examSubmissionRouter.js";
+import submitRouter from "./routes/submitRouter.js";
+import userDashboardRouter from "./routes/userProfile.js";
+import leaderboardRouter from "./routes/leaderboardRouter.js";
+import adminDashboardRouter from "./routes/adminDashboardRoute.js";
+
 dotenv.config();
 
 const dev = process.env.NODE_ENV !== "production";
@@ -70,13 +77,19 @@ nextApp.prepare().then(() => {
   // 2. Express API Routes
   server.use("/auth", authRouter);
   server.use("/api", executionRouter);
-  server.use("/api", submissionsRouter);
+  //server.use("/api", submissionsRouter);
 
+  server.use("/api/tracks", tracksRouter);
   server.use("/api/lessons", lessonsRouter);
   server.use("/api/problems", problemsRouter);
-
+  server.use("/api/editor", editorRoutes);
+  server.use("/api/exam", examRouter);
+  server.use("/api/submit", submitRouter);
+  server.use("/api/profile/dashboard", userDashboardRouter);
   server.use("/api/leaderboard", leaderboardRouter);
+
   server.use("/api/admin", adminSubdomainCheck, adminRouter);
+  server.use("/api/admin", adminSubdomainCheck, adminDashboardRouter);
   server.use("/api/content", adminSubdomainCheck, adminContentRouter);
   server.use("/api/profile", profileRouter);
   server.get("/", (req, res) => {

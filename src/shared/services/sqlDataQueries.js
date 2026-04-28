@@ -16,19 +16,20 @@ export const runCoreExecution = async (sql, engine) => {
 
   switch (engine) {
     case "mysql": {
-      const { runMySQL } = await import("../executor/mysqlExecutor.js");
+      const { runMySQL } = await import("#server/executor/mysqlExecutor.js");
       result = await withTimeout(runMySQL, 10000)(sql);
       parsedResult = parseMySQLResult(result);
       break;
     }
     case "postgres": {
-      const { runPostgres } = await import("../executor/postgresExecutor.js");
+      const { runPostgres } =
+        await import("#server/executor/postgresExecutor.js");
       result = await withTimeout(runPostgres, 10000)(sql);
       parsedResult = parsePostgresResult(result);
       break;
     }
     case "sqlite": {
-      const { runSQLite } = await import("../executor/sqliteExecutor.js");
+      const { runSQLite } = await import("#server/executor/sqliteExecutor.js");
       result = await withTimeout(runSQLite, 10000)(sql);
       parsedResult = parseSQLiteResult(result);
       break;
