@@ -9,7 +9,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import Image from "next/image";
+
 import {
   Bar,
   BarChart,
@@ -25,21 +25,11 @@ import {
 } from "recharts";
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   ChartStyle,
   type ChartConfig,
 } from "@/components/ui/chart";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -270,6 +260,23 @@ function AppBarChart() {
         </Select>
       </div>
 
+      <div className="flex items-center gap-4 mb-3">
+        <div className="flex items-center gap-1.5">
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-sm"
+            style={{ background: "#22c55e" }}
+          />
+          <span className="text-xs text-muted-foreground">Correct</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-sm"
+            style={{ background: "#ef4444" }}
+          />
+          <span className="text-xs text-muted-foreground">Incorrect</span>
+        </div>
+      </div>
+
       <ChartContainer
         config={submissionChartConfig}
         className="min-h-[200px] w-full"
@@ -288,7 +295,6 @@ function AppBarChart() {
             cursor={false}
             content={<ChartTooltipContent indicator="dot" />}
           />
-          <ChartLegend content={ChartLegendContent} />
           <Bar dataKey="correct" fill="var(--color-correct)" radius={4} />
           <Bar dataKey="incorrect" fill="var(--color-incorrect)" radius={4} />
         </BarChart>
@@ -654,12 +660,10 @@ function RecentUsers() {
               {/* Avatar */}
               <div className="w-10 h-10 rounded-full relative overflow-hidden shrink-0 bg-foreground/10">
                 {u.avatarUrl ? (
-                  <Image
+                  <img
                     src={u.avatarUrl}
                     alt={u.displayName}
-                    fill
-                    sizes="40px"
-                    className="object-cover"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <span className="flex items-center justify-center h-full text-sm font-semibold text-muted-foreground">

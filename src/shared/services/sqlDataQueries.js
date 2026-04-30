@@ -5,40 +5,246 @@ import { parseSQLiteResult } from "#server/utils/parsesqlite.js";
 import { validateQuery } from "#server/security/validateQuery.js";
 import { withTimeout } from "#server/executor/timeOut.js";
 import { calculateLevel } from "#server/utils/levelUtils.js";
+import { resolveTemplate } from "#server/executor/templateManager.js";
 
-export const runCoreExecution = async (sql, engine) => {
-  const validation = validateQuery(sql);
-  if (!validation.valid) {
-    throw new Error(validation.error);
+// POSTGRES
+
+async function _runPostgres(sql, schemaSQL, problemId) {
+  const { runPostgres, runPostgresDDL } =
+    await import("#server/executor/postgresExecutor.js");
+  const runSafe = withTimeout(runPostgres, 10000);
+  const runSafeDDL = withTimeout(runPostgresDDL, 10000);
+
+  let sourceTemplate = null;
+  let adHocTemplate = null;
+
+  if (problemId) {
+    sourceTemplate = await resolveTemplate(problemId, "postgres");
+    if (sourceTemplate) {
+      console.log(`[exec:pg] Fast path: ${sourceTemplate}`);
+    } else {
+      console.warn(
+        `[exec:pg] No template for problem ${problemId} — falling back to ad-hoc`,
+      );
+    }
   }
 
-  let result, parsedResult;
+  if (!sourceTemplate && schemaSQL?.trim()) {
+    adHocTemplate = `tpl_adhoc_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    sourceTemplate = adHocTemplate;
+    console.log(`[exec:pg] Slow path: building ${adHocTemplate}`);
+    await runSafeDDL(`CREATE DATABASE ${adHocTemplate} TEMPLATE template1`);
+    await runSafe(schemaSQL, adHocTemplate);
+  }
+
+  if (!sourceTemplate) {
+    sourceTemplate = "template1";
+    console.log(`[exec:pg] Fallback: empty sandbox`);
+  }
+
+  const dbName = `sandbox_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  console.log(`[exec:pg] Cloning ${sourceTemplate} → ${dbName}`);
+
+  try {
+    await runSafeDDL(`CREATE DATABASE ${dbName} TEMPLATE ${sourceTemplate}`);
+    await runSafe(`SET statement_timeout = 8000`, dbName);
+    const result = await runSafe(sql, dbName);
+    console.log(`[exec:pg] Query success`);
+    return parsePostgresResult(result);
+  } catch (err) {
+    console.error(`[exec:pg] Error:`, err.message);
+    throw err;
+  } finally {
+    _cleanupPostgres(dbName, runPostgresDDL);
+    if (adHocTemplate) _cleanupPostgres(adHocTemplate, runPostgresDDL);
+  }
+}
+
+async function _cleanupPostgres(dbName, runPostgresDDL) {
+  try {
+    await runPostgresDDL(`
+      SELECT pg_terminate_backend(pid)
+      FROM pg_stat_activity
+      WHERE datname = '${dbName}' AND pid <> pg_backend_pid()
+    `).promise;
+    await runPostgresDDL(`DROP DATABASE IF EXISTS ${dbName}`).promise;
+    console.log(`[exec:pg] Cleanup done: ${dbName}`);
+  } catch (err) {
+    console.error(`[exec:pg] Cleanup error for ${dbName}:`, err.message);
+  }
+}
+
+// MYSQL
+
+async function _runMySQL(sql, schemaSQL, problemId) {
+  const { runMySQL, runMySQLAdmin, cloneMySQLDatabase, dropMySQLDatabase } =
+    await import("#server/executor/mysqlExecutor.js");
+
+  const runSafe = withTimeout(runMySQL, 10000);
+  const runSafeAdmin = withTimeout(runMySQLAdmin, 15000); // clone can be slower
+
+  let sourceTemplate = null;
+  let adHocTemplate = null;
+
+  if (problemId) {
+    sourceTemplate = await resolveTemplate(problemId, "mysql");
+    if (sourceTemplate) {
+      console.log(`[exec:mysql] Fast path: ${sourceTemplate}`);
+    } else {
+      console.warn(
+        `[exec:mysql] No template for problem ${problemId} — falling back to ad-hoc`,
+      );
+    }
+  }
+
+  if (!sourceTemplate && schemaSQL?.trim()) {
+    adHocTemplate = `tpl_adhoc_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    sourceTemplate = adHocTemplate;
+    console.log(`[exec:mysql] Slow path: building ${adHocTemplate}`);
+    await runSafeAdmin(`CREATE DATABASE \`${adHocTemplate}\``);
+    await runSafeAdmin(`USE \`${adHocTemplate}\`; ${schemaSQL}`);
+  }
+
+  const dbName = `sandbox_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  console.log(`[exec:mysql] Cloning ${sourceTemplate ?? "empty"} → ${dbName}`);
+
+  try {
+    if (sourceTemplate) {
+      // Clone template via mysqldump | mysql (MySQL has no TEMPLATE equivalent)
+      await cloneMySQLDatabase(sourceTemplate, dbName);
+    } else {
+      // No template, no schemaSQL → empty sandbox
+      await runSafeAdmin(`CREATE DATABASE \`${dbName}\``);
+    }
+
+    console.log(`[exec:mysql] Sandbox ready: ${dbName}`);
+
+    // Run user query with a timeout guard via MAX_EXECUTION_TIME hint
+    // This is MySQL's equivalent of SET statement_timeout
+    const timedSQL = `SET SESSION MAX_EXECUTION_TIME=8000; ${sql}`;
+    const result = await runSafe(timedSQL, dbName);
+
+    console.log(`[exec:mysql] Query success`);
+    return parseMySQLResult(result);
+  } catch (err) {
+    console.error(`[exec:mysql] Error:`, err.message);
+    throw err;
+  } finally {
+    // Fire-and-forget cleanup
+    _cleanupMySQL(dbName, dropMySQLDatabase);
+    if (adHocTemplate) _cleanupMySQL(adHocTemplate, dropMySQLDatabase);
+  }
+}
+
+async function _cleanupMySQL(dbName, dropMySQLDatabase) {
+  try {
+    await dropMySQLDatabase(dbName);
+    console.log(`[exec:mysql] Cleanup done: ${dbName}`);
+  } catch (err) {
+    console.error(`[exec:mysql] Cleanup error for ${dbName}:`, err.message);
+  }
+}
+
+// SQLITE
+
+async function _runSQLite(sql, schemaSQL, problemId) {
+  const {
+    runSQLite,
+    cloneSQLiteDatabase,
+    dropSQLiteDatabase,
+    createSQLiteTemplate,
+  } = await import("#server/executor/sqliteExecutor.js");
+
+  // SQLite paths inside the container
+  const SANDBOX_DIR = "/sandbox";
+  const TEMPLATE_DIR = "/templates";
+
+  const runSafe = withTimeout(runSQLite, 10000);
+
+  let sourceTplPath = null;
+  let adHocTplPath = null;
+
+  if (problemId) {
+    sourceTplPath = await resolveTemplate(problemId, "sqlite");
+    if (sourceTplPath) {
+      console.log(`[exec:sqlite] Fast path: ${sourceTplPath}`);
+    } else {
+      console.warn(
+        `[exec:sqlite] No template for problem ${problemId} — falling back to ad-hoc`,
+      );
+    }
+  }
+
+  if (!sourceTplPath && schemaSQL?.trim()) {
+    // Build one-off template file (admin preview)
+    const adHocId = `adhoc_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    adHocTplPath = `${TEMPLATE_DIR}/tpl_${adHocId}.db`;
+    sourceTplPath = adHocTplPath;
+    console.log(`[exec:sqlite] Slow path: building ${adHocTplPath}`);
+    await createSQLiteTemplate(`adhoc_${adHocId}`, "universal", schemaSQL);
+  }
+
+  // Unique sandbox DB file path
+  const sandboxPath = `${SANDBOX_DIR}/sandbox_${Date.now()}_${Math.random().toString(36).slice(2)}.db`;
+  console.log(`[exec:sqlite] Sandbox: ${sandboxPath}`);
+
+  try {
+    if (sourceTplPath) {
+      // Clone template file — O(1) cp inside container
+      await cloneSQLiteDatabase(sourceTplPath, sandboxPath);
+      console.log(`[exec:sqlite] Cloned ${sourceTplPath} → ${sandboxPath}`);
+    }
+    // If no template, just run against a fresh (empty) DB file — sqlite3 creates it automatically
+
+    const result = await runSafe(sql, sandboxPath);
+    console.log(`[exec:sqlite] Query success`);
+    return parseSQLiteResult(result);
+  } catch (err) {
+    console.error(`[exec:sqlite] Error:`, err.message);
+    throw err;
+  } finally {
+    // Fire-and-forget cleanup
+    _cleanupSQLite(sandboxPath, dropSQLiteDatabase);
+    if (adHocTplPath) _cleanupSQLite(adHocTplPath, dropSQLiteDatabase);
+  }
+}
+
+async function _cleanupSQLite(dbPath, dropSQLiteDatabase) {
+  try {
+    await dropSQLiteDatabase(dbPath);
+    console.log(`[exec:sqlite] Cleanup done: ${dbPath}`);
+  } catch (err) {
+    console.error(`[exec:sqlite] Cleanup error for ${dbPath}:`, err.message);
+  }
+}
+
+/**
+ * Executes a user SQL query in an isolated sandbox.
+ *
+ * @param {string}             sql        - User's SQL query
+ * @param {"postgres"|"mysql"|"sqlite"} engine
+ * @param {string}             schemaSQL  - Fallback schema (used only when no pre-built template)
+ * @param {string|number|null} problemId  - When provided, clones pre-built template (fast path)
+ */
+export const runCoreExecution = async (
+  sql,
+  engine,
+  schemaSQL = "",
+  problemId = null,
+) => {
+  const validation = validateQuery(sql);
+  if (!validation.valid) throw new Error(validation.error);
 
   switch (engine) {
-    case "mysql": {
-      const { runMySQL } = await import("#server/executor/mysqlExecutor.js");
-      result = await withTimeout(runMySQL, 10000)(sql);
-      parsedResult = parseMySQLResult(result);
-      break;
-    }
-    case "postgres": {
-      const { runPostgres } =
-        await import("#server/executor/postgresExecutor.js");
-      result = await withTimeout(runPostgres, 10000)(sql);
-      parsedResult = parsePostgresResult(result);
-      break;
-    }
-    case "sqlite": {
-      const { runSQLite } = await import("#server/executor/sqliteExecutor.js");
-      result = await withTimeout(runSQLite, 10000)(sql);
-      parsedResult = parseSQLiteResult(result);
-      break;
-    }
+    case "postgres":
+      return _runPostgres(sql, schemaSQL, problemId);
+    case "mysql":
+      return _runMySQL(sql, schemaSQL, problemId);
+    case "sqlite":
+      return _runSQLite(sql, schemaSQL, problemId);
     default:
-      throw new Error("Unsupported database engine");
+      throw new Error(`Unsupported engine: ${engine}`);
   }
-
-  return parsedResult;
 };
 
 export const fetchProblemResult = async (

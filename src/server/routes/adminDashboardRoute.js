@@ -1,221 +1,310 @@
+/**
+ * Admin Dashboard API Routes
+ * Mount this in your router with your auth middleware, e.g.:
+ *
+ *   import adminDashboardRouter from "./routes/adminDashboard.js";
+ *   router.use("/adminDashboard", authenticateToken, adminDashboardRouter);
+ *
+ * This makes every route reachable at /api/adminDashboard/<route>
+ * e.g. GET /api/adminDashboard/stats
+ */
+
 import { Router } from "express";
 import { db } from "#shared/config/db.js";
 
 const router = Router();
 
-// ─── GET /api/adminDashboard/stats ───────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /stats
+// High-level KPI cards: users, submissions, content, badges, certificates
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/stats", async (req, res) => {
   try {
     const [
-      usersRow,
-      newUsersRow,
-      activeUsersRow,
-      submissionsRow,
-      correctRow,
-      tracksRow,
-      lessonsRow,
-      problemsRow,
-      badgesRow,
-      certsRow,
+      usersResult,
+      newUsersResult,
+      activeUsersResult,
+      submissionsResult,
+      solvedResult,
+      tracksResult,
+      lessonsResult,
+      problemsResult,
+      badgesResult,
+      certificatesResult,
     ] = await Promise.all([
-      db.query(`SELECT COUNT(*)::int AS count FROM users`),
+      db.query(`SELECT COUNT(*) AS total FROM users`),
+
       db.query(
-        `SELECT COUNT(*)::int AS count FROM users
+        `SELECT COUNT(*) AS total FROM users
          WHERE created_at >= NOW() - INTERVAL '30 days'`,
       ),
+
       db.query(
-        `SELECT COUNT(DISTINCT user_id)::int AS count FROM submissions
-         WHERE created_at >= NOW() - INTERVAL '7 days'`,
+        `SELECT COUNT(*) AS total FROM users
+         WHERE last_login >= NOW() - INTERVAL '7 days'`,
       ),
-      db.query(`SELECT COUNT(*)::int AS count FROM submissions`),
+
+      db.query(`SELECT COUNT(*) AS total FROM submissions`),
+
       db.query(
-        `SELECT COUNT(*)::int AS count FROM submissions WHERE is_correct = true`,
+        `SELECT COUNT(*) AS total FROM submissions WHERE is_correct = true`,
       ),
+
       db.query(
-        `SELECT COUNT(*)::int AS count FROM tracks WHERE is_published = true`,
+        `SELECT COUNT(*) AS total FROM tracks WHERE is_published = true`,
       ),
+
       db.query(
-        `SELECT COUNT(*)::int AS count FROM lessons WHERE is_published = true`,
+        `SELECT COUNT(*) AS total FROM lessons WHERE is_published = true`,
       ),
+
       db.query(
-        `SELECT COUNT(*)::int AS count FROM problems WHERE is_published = true`,
+        `SELECT COUNT(*) AS total FROM problems WHERE is_published = true`,
       ),
-      db.query(
-        `SELECT COUNT(*)::int AS count FROM badges WHERE is_active = true`,
-      ),
-      db.query(`SELECT COUNT(*)::int AS count FROM certificates`),
+
+      db.query(`SELECT COUNT(*) AS total FROM badges WHERE is_active = true`),
+
+      db.query(`SELECT COUNT(*) AS total FROM certificates`),
     ]);
 
-    const totalSubmissions = submissionsRow.rows[0].count;
-    const correctSubmissions = correctRow.rows[0].count;
+    const totalSubmissions = parseInt(submissionsResult.rows[0].total, 10);
+    const correctSubmissions = parseInt(solvedResult.rows[0].total, 10);
 
     res.json({
-      totalUsers: usersRow.rows[0].count,
-      newUsersLast30Days: newUsersRow.rows[0].count,
-      activeUsersLast7Days: activeUsersRow.rows[0].count,
+      totalUsers: parseInt(usersResult.rows[0].total, 10),
+      newUsersLast30Days: parseInt(newUsersResult.rows[0].total, 10),
+      activeUsersLast7Days: parseInt(activeUsersResult.rows[0].total, 10),
       totalSubmissions,
       correctSubmissions,
       successRate:
         totalSubmissions > 0
           ? Math.round((correctSubmissions / totalSubmissions) * 100)
           : 0,
-      publishedTracks: tracksRow.rows[0].count,
-      publishedLessons: lessonsRow.rows[0].count,
-      publishedProblems: problemsRow.rows[0].count,
-      activeBadges: badgesRow.rows[0].count,
-      certificatesIssued: certsRow.rows[0].count,
+      publishedTracks: parseInt(tracksResult.rows[0].total, 10),
+      publishedLessons: parseInt(lessonsResult.rows[0].total, 10),
+      publishedProblems: parseInt(problemsResult.rows[0].total, 10),
+      activeBadges: parseInt(badgesResult.rows[0].total, 10),
+      certificatesIssued: parseInt(certificatesResult.rows[0].total, 10),
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch stats" });
+    console.error("[admin/stats]", err);
+    res.status(500).json({ error: "Failed to load stats" });
   }
 });
 
-// ─── GET /api/adminDashboard/submission-activity?months=6 ────────────────────
-router.get("/submission-activity", async (req, res) => {
-  const months = Math.min(parseInt(req.query.months) || 6, 24);
-  try {
-    const { rows } = await db.query(
-      `SELECT
-         TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS month,
-         DATE_TRUNC('month', created_at)                       AS month_date,
-         COUNT(*) FILTER (WHERE is_correct = true)::int        AS correct,
-         COUNT(*) FILTER (WHERE is_correct = false)::int       AS incorrect,
-         COUNT(*)::int                                          AS total
-       FROM submissions
-       WHERE created_at >= DATE_TRUNC('month', NOW()) - ($1 - 1) * INTERVAL '1 month'
-       GROUP BY month_date, month
-       ORDER BY month_date`,
-      [months],
-    );
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch submission activity" });
-  }
-});
-
-// ─── GET /api/adminDashboard/user-growth?months=6 ────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /user-growth?months=6
+// Monthly new-user registrations for the area chart
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/user-growth", async (req, res) => {
-  const months = Math.min(parseInt(req.query.months) || 6, 24);
   try {
-    const { rows } = await db.query(
+    const months = Math.min(parseInt(req.query.months, 10) || 6, 24);
+
+    const result = await db.query(
       `SELECT
          TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS month,
-         DATE_TRUNC('month', created_at)                       AS month_date,
-         COUNT(*)::int                                          AS "newUsers"
+         DATE_TRUNC('month', created_at)                      AS month_date,
+         COUNT(*)                                             AS new_users
        FROM users
-       WHERE created_at >= DATE_TRUNC('month', NOW()) - ($1 - 1) * INTERVAL '1 month'
+       WHERE created_at >= NOW() - ($1 || ' months')::INTERVAL
        GROUP BY month_date, month
-       ORDER BY month_date`,
+       ORDER BY month_date ASC`,
       [months],
     );
-    res.json(rows);
+
+    res.json(
+      result.rows.map((r) => ({
+        month: r.month,
+        newUsers: parseInt(r.new_users, 10),
+      })),
+    );
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch user growth" });
+    console.error("[admin/user-growth]", err);
+    res.status(500).json({ error: "Failed to load user growth" });
   }
 });
 
-// ─── GET /api/adminDashboard/difficulty-distribution ─────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /submission-activity?months=6
+// Monthly correct vs incorrect submissions for the bar chart
+// ─────────────────────────────────────────────────────────────────────────────
+router.get("/submission-activity", async (req, res) => {
+  try {
+    const months = Math.min(parseInt(req.query.months, 10) || 6, 24);
+
+    const result = await db.query(
+      `SELECT
+         TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS month,
+         DATE_TRUNC('month', created_at)                      AS month_date,
+         COUNT(*) FILTER (WHERE is_correct = true)            AS correct,
+         COUNT(*) FILTER (WHERE is_correct = false)           AS incorrect,
+         COUNT(*)                                             AS total
+       FROM submissions
+       WHERE created_at >= NOW() - ($1 || ' months')::INTERVAL
+       GROUP BY month_date, month
+       ORDER BY month_date ASC`,
+      [months],
+    );
+
+    res.json(
+      result.rows.map((r) => ({
+        month: r.month,
+        correct: parseInt(r.correct, 10),
+        incorrect: parseInt(r.incorrect, 10),
+        total: parseInt(r.total, 10),
+      })),
+    );
+  } catch (err) {
+    console.error("[admin/submission-activity]", err);
+    res.status(500).json({ error: "Failed to load submission activity" });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /difficulty-distribution
+// Published problem count grouped by difficulty for the pie chart
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/difficulty-distribution", async (req, res) => {
   try {
-    const { rows } = await db.query(
+    const result = await db.query(
       `SELECT
          COALESCE(difficulty, 'Unset') AS difficulty,
-         COUNT(*)::int                  AS count
+         COUNT(*)                      AS count
        FROM problems
        WHERE is_published = true
        GROUP BY difficulty
        ORDER BY count DESC`,
     );
-    res.json(rows);
+
+    res.json(
+      result.rows.map((r) => ({
+        difficulty: r.difficulty,
+        count: parseInt(r.count, 10),
+      })),
+    );
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch difficulty distribution" });
+    console.error("[admin/difficulty-distribution]", err);
+    res.status(500).json({ error: "Failed to load difficulty distribution" });
   }
 });
 
-// ─── GET /api/adminDashboard/top-problems?limit=5 ────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /top-problems?limit=5
+// Most attempted published problems
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/top-problems", async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 5, 20);
   try {
-    const { rows } = await db.query(
+    const limit = Math.min(parseInt(req.query.limit, 10) || 5, 20);
+
+    const result = await db.query(
       `SELECT
          p.id,
          p.title,
          p.difficulty,
-         COALESCE(p.acceptance_rate, 0)::numeric(5,1) AS "acceptanceRate",
-         COUNT(s.id)::int                              AS "totalAttempts"
+         p.acceptance_rate,
+         COUNT(s.id)                                  AS total_attempts,
+         COUNT(s.id) FILTER (WHERE s.is_correct)      AS correct_attempts
        FROM problems p
        LEFT JOIN submissions s ON s.problem_id = p.id
        WHERE p.is_published = true
-       GROUP BY p.id
-       ORDER BY "totalAttempts" DESC
+       GROUP BY p.id, p.title, p.difficulty, p.acceptance_rate
+       ORDER BY total_attempts DESC
        LIMIT $1`,
       [limit],
     );
-    res.json(rows);
+
+    res.json(
+      result.rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        difficulty: r.difficulty,
+        acceptanceRate: r.acceptance_rate
+          ? parseFloat(r.acceptance_rate)
+          : r.total_attempts > 0
+            ? Math.round((r.correct_attempts / r.total_attempts) * 100)
+            : 0,
+        totalAttempts: parseInt(r.total_attempts, 10),
+      })),
+    );
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch top problems" });
+    console.error("[admin/top-problems]", err);
+    res.status(500).json({ error: "Failed to load top problems" });
   }
 });
 
-// ─── GET /api/adminDashboard/recent-users?limit=5 ────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /recent-users?limit=5
+// Latest registered users
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/recent-users", async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 5, 50);
   try {
-    const { rows } = await db.query(
+    const limit = Math.min(parseInt(req.query.limit, 10) || 5, 50);
+
+    const result = await db.query(
       `SELECT
-         id,
-         username,
-         COALESCE(display_name, username) AS "displayName",
-         avatar_url                        AS "avatarUrl",
-         COALESCE(xp, 0)                  AS xp,
-         COALESCE(level, 1)               AS level,
-         created_at                        AS "createdAt",
-         COALESCE(is_verified, false)      AS "isVerified",
-         COALESCE(user_role, 'user')       AS role
+         id, username, display_name, email,
+         avatar_url, xp, level, created_at,
+         is_verified, user_role
        FROM users
        ORDER BY created_at DESC
        LIMIT $1`,
       [limit],
     );
-    res.json(rows);
+
+    res.json(
+      result.rows.map((r) => ({
+        id: r.id,
+        username: r.username,
+        displayName: r.display_name || r.username,
+        email: r.email,
+        avatarUrl: r.avatar_url,
+        xp: r.xp || 0,
+        level: r.level || 1,
+        createdAt: r.created_at,
+        isVerified: r.is_verified,
+        role: r.user_role,
+      })),
+    );
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch recent users" });
+    console.error("[admin/recent-users]", err);
+    res.status(500).json({ error: "Failed to load recent users" });
   }
 });
 
-// ─── GET /api/adminDashboard/track-completion ────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /track-completion
+// Per-track enrolled vs completed counts + completion rate
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/track-completion", async (req, res) => {
   try {
-    const { rows } = await db.query(
+    const result = await db.query(
       `SELECT
          t.id,
          t.title,
          t.difficulty,
-         COUNT(utp.user_id)::int                                          AS enrolled,
-         COUNT(utp.user_id) FILTER (WHERE utp.completed = true)::int     AS completed,
-         CASE
-           WHEN COUNT(utp.user_id) = 0 THEN 0
-           ELSE ROUND(
-             COUNT(utp.user_id) FILTER (WHERE utp.completed = true)::numeric
-             / COUNT(utp.user_id) * 100
-           )
-         END::int AS "completionRate"
+         COUNT(utp.id)                                       AS enrolled,
+         COUNT(utp.id) FILTER (WHERE utp.completed = true)   AS completed
        FROM tracks t
        LEFT JOIN user_track_progress utp ON utp.track_id = t.id
        WHERE t.is_published = true
-       GROUP BY t.id
+       GROUP BY t.id, t.title, t.difficulty
        ORDER BY enrolled DESC`,
     );
-    res.json(rows);
+
+    res.json(
+      result.rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        difficulty: r.difficulty,
+        enrolled: parseInt(r.enrolled, 10),
+        completed: parseInt(r.completed, 10),
+        completionRate:
+          r.enrolled > 0 ? Math.round((r.completed / r.enrolled) * 100) : 0,
+      })),
+    );
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch track completion" });
+    console.error("[admin/track-completion]", err);
+    res.status(500).json({ error: "Failed to load track completion" });
   }
 });
 

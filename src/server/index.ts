@@ -89,7 +89,7 @@ nextApp.prepare().then(() => {
   server.use("/api/leaderboard", leaderboardRouter);
 
   server.use("/api/admin", adminSubdomainCheck, adminRouter);
-  server.use("/api/admin", adminSubdomainCheck, adminDashboardRouter);
+  server.use("/api/adminDashboard", adminSubdomainCheck, adminDashboardRouter);
   server.use("/api/content", adminSubdomainCheck, adminContentRouter);
   server.use("/api/profile", profileRouter);
   server.get("/", (req, res) => {

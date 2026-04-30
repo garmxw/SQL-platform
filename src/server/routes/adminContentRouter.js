@@ -2,50 +2,38 @@ import { Router } from "express";
 import { db } from "#shared/config/db.js";
 import { authenticateToken } from "#server/middleware/authMiddleware.js";
 import { authorizeRoles } from "#server/middleware/roleMiddleware.js";
+import {
+  syncProblemTemplates,
+  dropAllProblemTemplates,
+} from "#server/executor/templateManager.js";
 
 const router = new Router();
 
-// Apply auth + admin check to every route in this file
 router.use(authenticateToken, authorizeRoles("admin"));
-
-// CONSTANTS
 
 const SUPPORTED_DIALECTS = ["universal", "postgres", "mysql", "sqlite"];
 
-// SHARED SQL-VARIANT HELPERS
+// ─── SQL VARIANT HELPERS (unchanged) ─────────────────────────────────────────
 
-/**
- * Upsert lesson SQL variants from a variants map.
- *
- * @param {object} client  - pg client (inside a transaction)
- * @param {number} lessonId
- * @param {object} variantsMap - e.g. { universal: "SELECT 1", postgres: "SELECT NOW()" }
- *   Pass null / undefined to skip. Pass an empty object {} to delete all variants.
- */
 async function upsertLessonSqlVariants(client, lessonId, variantsMap) {
   if (variantsMap === null || variantsMap === undefined) return;
-
   const incoming = Object.entries(variantsMap).filter(
     ([dialect, sql]) =>
       SUPPORTED_DIALECTS.includes(dialect) &&
       typeof sql === "string" &&
       sql.trim() !== "",
   );
-
-  // Delete dialects that are explicitly removed (key present, value empty/null)
   const toDelete = Object.entries(variantsMap)
     .filter(
       ([dialect, sql]) => SUPPORTED_DIALECTS.includes(dialect) && !sql?.trim(),
     )
     .map(([dialect]) => dialect);
-
   if (toDelete.length) {
     await client.query(
       `DELETE FROM lesson_sql_variants WHERE lesson_id=$1 AND dialect = ANY($2::sql_dialect[])`,
       [lessonId, toDelete],
     );
   }
-
   for (const [dialect, sql_text] of incoming) {
     await client.query(
       `INSERT INTO lesson_sql_variants (lesson_id, dialect, sql_text, updated_at)
@@ -57,55 +45,31 @@ async function upsertLessonSqlVariants(client, lessonId, variantsMap) {
   }
 }
 
-/**
- * Upsert problem SQL variants.
- *
- * @param {object} client
- * @param {number} problemId
- * @param {object} sqlVariants - shape:
- * {
- *   starter:  { universal: "...", postgres: "...", mysql: "...", sqlite: "..." },
- *   schema:   { universal: "..." },
- *   solution: {
- *     universal: ["SELECT ...", "SELECT ..."],
- *     postgres:  ["SELECT NOW()"],
- *   }
- * }
- */
 async function upsertProblemSqlVariants(client, problemId, sqlVariants) {
   if (!sqlVariants) return;
-
-  if (sqlVariants.starter !== undefined) {
+  if (sqlVariants.starter !== undefined)
     await _upsertSimpleVariants(
       client,
       problemId,
       "starter",
       sqlVariants.starter,
     );
-  }
-
-  if (sqlVariants.schema !== undefined) {
+  if (sqlVariants.schema !== undefined)
     await _upsertSimpleVariants(
       client,
       problemId,
       "schema",
       sqlVariants.schema,
     );
-  }
-
   if (sqlVariants.solution !== undefined) {
     for (const [dialect, solutions] of Object.entries(sqlVariants.solution)) {
       if (!SUPPORTED_DIALECTS.includes(dialect)) continue;
-
-      // Replace strategy: delete then re-insert
       await client.query(
         `DELETE FROM problem_sql_variants
          WHERE problem_id=$1 AND variant_type='solution' AND dialect=$2::sql_dialect`,
         [problemId, dialect],
       );
-
       if (!Array.isArray(solutions) || solutions.length === 0) continue;
-
       for (let i = 0; i < solutions.length; i++) {
         const sql_text = solutions[i];
         if (typeof sql_text !== "string" || !sql_text.trim()) continue;
@@ -120,10 +84,6 @@ async function upsertProblemSqlVariants(client, problemId, sqlVariants) {
   }
 }
 
-/**
- * Internal helper for single-row-per-dialect variant types (starter / schema).
- * Uses DELETE + INSERT instead of ON CONFLICT to avoid partial-index issues.
- */
 async function _upsertSimpleVariants(
   client,
   problemId,
@@ -131,26 +91,14 @@ async function _upsertSimpleVariants(
   dialectMap,
 ) {
   if (!dialectMap || typeof dialectMap !== "object") return;
-
   for (const [dialect, sql_text] of Object.entries(dialectMap)) {
     if (!SUPPORTED_DIALECTS.includes(dialect)) continue;
-
-    if (!sql_text?.trim()) {
-      // Empty value → delete
-      await client.query(
-        `DELETE FROM problem_sql_variants
-         WHERE problem_id=$1 AND variant_type=$2 AND dialect=$3::sql_dialect`,
-        [problemId, variantType, dialect],
-      );
-      continue;
-    }
-
-    // Delete any existing row first, then insert — avoids ON CONFLICT partial-index issues
     await client.query(
       `DELETE FROM problem_sql_variants
        WHERE problem_id=$1 AND variant_type=$2 AND dialect=$3::sql_dialect`,
       [problemId, variantType, dialect],
     );
+    if (!sql_text?.trim()) continue;
     await client.query(
       `INSERT INTO problem_sql_variants
          (problem_id, variant_type, dialect, sql_text, updated_at)
@@ -160,10 +108,6 @@ async function _upsertSimpleVariants(
   }
 }
 
-/**
- * Fetch all SQL variants for a lesson, grouped into an object:
- * { universal: "...", postgres: "...", ... }
- */
 async function fetchLessonSqlVariants(client, lessonId) {
   const { rows } = await client.query(
     `SELECT dialect, sql_text FROM lesson_sql_variants WHERE lesson_id=$1 ORDER BY dialect`,
@@ -172,14 +116,6 @@ async function fetchLessonSqlVariants(client, lessonId) {
   return rows.reduce((acc, r) => ({ ...acc, [r.dialect]: r.sql_text }), {});
 }
 
-/**
- * Fetch all SQL variants for a problem, grouped by variant_type then dialect:
- * {
- *   starter:  { universal: "..." },
- *   schema:   { universal: "..." },
- *   solution: { universal: ["...", "..."], postgres: ["..."] }
- * }
- */
 async function fetchProblemSqlVariants(client_or_db, problemId) {
   const { rows } = await client_or_db.query(
     `SELECT variant_type, dialect, sql_text, sort_order
@@ -188,7 +124,6 @@ async function fetchProblemSqlVariants(client_or_db, problemId) {
      ORDER BY variant_type, dialect, sort_order`,
     [problemId],
   );
-
   const result = { starter: {}, schema: {}, solution: {} };
   for (const r of rows) {
     if (r.variant_type === "solution") {
@@ -201,9 +136,8 @@ async function fetchProblemSqlVariants(client_or_db, problemId) {
   return result;
 }
 
-// ─── TRACKS ──────────────────────────────────────────────────────────────────
+// ─── TRACKS (unchanged) ───────────────────────────────────────────────────────
 
-// GET /api/admin/tracks
 router.get("/tracks", async (req, res) => {
   try {
     const { rows } = await db.query(`
@@ -225,7 +159,6 @@ router.get("/tracks", async (req, res) => {
   }
 });
 
-// POST /api/admin/tracks
 router.post("/tracks", async (req, res) => {
   const {
     title,
@@ -238,12 +171,10 @@ router.post("/tracks", async (req, res) => {
     prerequisite_track_id,
     is_published,
   } = req.body;
-
   if (!title)
     return res
       .status(400)
       .json({ status: "error", message: "title is required" });
-
   try {
     const { rows } = await db.query(
       `INSERT INTO tracks
@@ -270,7 +201,6 @@ router.post("/tracks", async (req, res) => {
   }
 });
 
-// PATCH /api/admin/tracks/:id
 router.patch("/tracks/:id", async (req, res) => {
   const id = Number(req.params.id);
   const ALLOWED = [
@@ -313,7 +243,6 @@ router.patch("/tracks/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/admin/tracks/:id
 router.delete("/tracks/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -331,7 +260,6 @@ router.delete("/tracks/:id", async (req, res) => {
 
 // ─── LESSONS ─────────────────────────────────────────────────────────────────
 
-// GET /api/admin/lessons?track_id=N
 router.get("/lessons", async (req, res) => {
   const { track_id } = req.query;
   const cond = track_id ? "WHERE l.track_id=$1" : "";
@@ -349,11 +277,9 @@ router.get("/lessons", async (req, res) => {
        ORDER BY l.lesson_order ASC`,
       vals,
     );
-
     for (const row of rows) {
       row.demo_sql_variants = await fetchLessonSqlVariants(db, row.id);
     }
-
     res.json({ status: "success", data: rows });
   } catch (err) {
     console.error("GET /api/admin/lessons", err);
@@ -361,7 +287,6 @@ router.get("/lessons", async (req, res) => {
   }
 });
 
-// GET /api/admin/lessons/:id
 router.get("/lessons/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -370,10 +295,8 @@ router.get("/lessons/:id", async (req, res) => {
       return res
         .status(404)
         .json({ status: "error", message: "Lesson not found" });
-
     const lesson = lessonRes.rows[0];
     lesson.demo_sql_variants = await fetchLessonSqlVariants(db, id);
-
     const problemRes = await db.query(
       `SELECT p.*, array_agg(ph.content ORDER BY ph.hint_order) FILTER (WHERE ph.id IS NOT NULL) AS hints_arr
        FROM problems p
@@ -382,12 +305,9 @@ router.get("/lessons/:id", async (req, res) => {
        GROUP BY p.id`,
       [id],
     );
-
     let problem = problemRes.rows[0] || null;
-    if (problem) {
+    if (problem)
       problem.sql_variants = await fetchProblemSqlVariants(db, problem.id);
-    }
-
     res.json({ status: "success", data: { lesson, problem } });
   } catch (err) {
     console.error("GET /api/admin/lessons/:id", err);
@@ -396,6 +316,7 @@ router.get("/lessons/:id", async (req, res) => {
 });
 
 // POST /api/admin/lessons
+// ✦ TEMPLATE HOOK: after creating the embedded problem, fire syncProblemTemplates
 router.post("/lessons", async (req, res) => {
   const client = await db.connect();
   try {
@@ -515,6 +436,21 @@ router.post("/lessons", async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    // ✦ TEMPLATE SYNC — fire after commit, non-blocking
+    // Builds tpl_{id}_universal and tpl_{id}_postgres from schema SQL
+    if (createdProblem && problem?.sql_variants?.schema) {
+      syncProblemTemplates(
+        createdProblem.id,
+        problem.sql_variants.schema,
+      ).catch((err) =>
+        console.error(
+          `[templates] Sync failed for lesson problem ${createdProblem.id}:`,
+          err.message,
+        ),
+      );
+    }
+
     res
       .status(201)
       .json({ status: "success", data: { lesson, problem: createdProblem } });
@@ -528,6 +464,7 @@ router.post("/lessons", async (req, res) => {
 });
 
 // PATCH /api/admin/lessons/:id
+// ✦ TEMPLATE HOOK: after updating the embedded problem's sql_variants, rebuild templates
 router.patch("/lessons/:id", async (req, res) => {
   const id = Number(req.params.id);
   const client = await db.connect();
@@ -554,13 +491,11 @@ router.patch("/lessons/:id", async (req, res) => {
       if (req.body[k] !== undefined) {
         let v = req.body[k];
         if (k === "tags" || k === "learning_goals" || k === "objectives") {
-          if (Array.isArray(v)) {
-            v = `{${v.join(",")}}`;
-          } else if (k === "tags") {
-            v = null;
-          } else {
-            v = "{}";
-          }
+          v = Array.isArray(v)
+            ? `{${v.join(",")}}`
+            : k === "tags"
+              ? null
+              : "{}";
         }
         vals.push(v);
         sets.push(`${k}=$${vals.length}`);
@@ -582,7 +517,6 @@ router.patch("/lessons/:id", async (req, res) => {
       }
       lesson = rows[0];
     } else {
-      // No lesson fields to update — still need to verify it exists
       const check = await client.query("SELECT id FROM lessons WHERE id=$1", [
         id,
       ]);
@@ -597,6 +531,10 @@ router.patch("/lessons/:id", async (req, res) => {
     if (req.body.demo_sql_variants !== undefined) {
       await upsertLessonSqlVariants(client, id, req.body.demo_sql_variants);
     }
+
+    // Track whether schema SQL changed so we know to rebuild templates
+    let schemaChanged = false;
+    let updatedProblemId = null;
 
     if (req.body.problem) {
       const p = req.body.problem;
@@ -632,11 +570,14 @@ router.patch("/lessons/:id", async (req, res) => {
           [id],
         );
         if (probRow.rows.length) {
+          updatedProblemId = probRow.rows[0].id;
           await upsertProblemSqlVariants(
             client,
-            probRow.rows[0].id,
+            updatedProblemId,
             p.sql_variants,
           );
+          // Mark schema as changed so templates are rebuilt after commit
+          if (p.sql_variants.schema !== undefined) schemaChanged = true;
         }
       }
 
@@ -647,6 +588,7 @@ router.patch("/lessons/:id", async (req, res) => {
         );
         if (probRow.rows.length) {
           const pid = probRow.rows[0].id;
+          updatedProblemId = updatedProblemId ?? pid;
           await client.query("DELETE FROM problem_hints WHERE problem_id=$1", [
             pid,
           ]);
@@ -668,6 +610,24 @@ router.patch("/lessons/:id", async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    // ✦ TEMPLATE SYNC — rebuild only if schema actually changed
+    if (
+      schemaChanged &&
+      updatedProblemId &&
+      req.body.problem?.sql_variants?.schema
+    ) {
+      syncProblemTemplates(
+        updatedProblemId,
+        req.body.problem.sql_variants.schema,
+      ).catch((err) =>
+        console.error(
+          `[templates] Sync failed for lesson problem ${updatedProblemId}:`,
+          err.message,
+        ),
+      );
+    }
+
     res.json({ status: "success", data: { lesson } });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -679,9 +639,16 @@ router.patch("/lessons/:id", async (req, res) => {
 });
 
 // DELETE /api/admin/lessons/:id
+// ✦ TEMPLATE HOOK: drop templates for the embedded problem before deleting
 router.delete("/lessons/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
+    // Grab embedded problem ID before cascade-delete removes it
+    const probRow = await db.query(
+      "SELECT id FROM problems WHERE lesson_id=$1 AND is_standalone=false LIMIT 1",
+      [id],
+    );
+
     const { rowCount } = await db.query("DELETE FROM lessons WHERE id=$1", [
       id,
     ]);
@@ -689,6 +656,17 @@ router.delete("/lessons/:id", async (req, res) => {
       return res
         .status(404)
         .json({ status: "error", message: "Lesson not found" });
+
+    // ✦ TEMPLATE DROP — fire after delete, non-blocking
+    if (probRow.rows.length) {
+      dropAllProblemTemplates(probRow.rows[0].id).catch((err) =>
+        console.error(
+          `[templates] Drop failed for lesson problem ${probRow.rows[0].id}:`,
+          err.message,
+        ),
+      );
+    }
+
     res.json({ status: "success" });
   } catch (err) {
     console.error("DELETE /api/admin/lessons/:id", err);
@@ -698,7 +676,6 @@ router.delete("/lessons/:id", async (req, res) => {
 
 // ─── STANDALONE PROBLEMS ─────────────────────────────────────────────────────
 
-// GET /api/admin/problems
 router.get("/problems", async (req, res) => {
   const { search = "", difficulty = "", page = "1", limit = "20" } = req.query;
   const pageNum = Math.max(1, Number(page));
@@ -754,7 +731,6 @@ router.get("/problems", async (req, res) => {
   }
 });
 
-// GET /api/admin/problems/:id
 router.get("/problems/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -763,10 +739,8 @@ router.get("/problems/:id", async (req, res) => {
       return res
         .status(404)
         .json({ status: "error", message: "Problem not found" });
-
     const problem = pRes.rows[0];
     problem.sql_variants = await fetchProblemSqlVariants(db, id);
-
     const hintsRes = await db.query(
       `SELECT * FROM problem_hints WHERE problem_id=$1 ORDER BY hint_order ASC`,
       [id],
@@ -775,7 +749,6 @@ router.get("/problems/:id", async (req, res) => {
       `SELECT * FROM problem_solutions WHERE problem_id=$1`,
       [id],
     );
-
     res.json({
       status: "success",
       data: { problem, hints: hintsRes.rows, solutions: solRes.rows },
@@ -787,6 +760,7 @@ router.get("/problems/:id", async (req, res) => {
 });
 
 // POST /api/admin/problems
+// ✦ TEMPLATE HOOK: after creating the problem, fire syncProblemTemplates
 router.post("/problems", async (req, res) => {
   const client = await db.connect();
   try {
@@ -867,6 +841,17 @@ router.post("/problems", async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    // ✦ TEMPLATE SYNC — fire after commit, non-blocking
+    if (sql_variants?.schema) {
+      syncProblemTemplates(prob.id, sql_variants.schema).catch((err) =>
+        console.error(
+          `[templates] Sync failed for problem ${prob.id}:`,
+          err.message,
+        ),
+      );
+    }
+
     res.status(201).json({ status: "success", data: prob });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -878,6 +863,7 @@ router.post("/problems", async (req, res) => {
 });
 
 // PATCH /api/admin/problems/:id
+// ✦ TEMPLATE HOOK: if schema SQL changed, rebuild templates after commit
 router.patch("/problems/:id", async (req, res) => {
   const id = Number(req.params.id);
   const client = await db.connect();
@@ -901,7 +887,12 @@ router.patch("/problems/:id", async (req, res) => {
       vals = [];
     for (const k of ALLOWED) {
       if (req.body[k] !== undefined) {
-        const v = k === "tags" ? `{${req.body[k].join(",")}}` : req.body[k];
+        const v =
+          k === "tags"
+            ? Array.isArray(req.body[k]) && req.body[k].length
+              ? `{${req.body[k].join(",")}}`
+              : null
+            : req.body[k];
         vals.push(v);
         sets.push(`${k}=$${vals.length}`);
       }
@@ -942,6 +933,17 @@ router.patch("/problems/:id", async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    // ✦ TEMPLATE SYNC — rebuild only if schema was part of the update
+    if (req.body.sql_variants?.schema !== undefined) {
+      syncProblemTemplates(id, req.body.sql_variants.schema).catch((err) =>
+        console.error(
+          `[templates] Sync failed for problem ${id}:`,
+          err.message,
+        ),
+      );
+    }
+
     res.json({ status: "success" });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -953,6 +955,7 @@ router.patch("/problems/:id", async (req, res) => {
 });
 
 // DELETE /api/admin/problems/:id
+// ✦ TEMPLATE HOOK: drop all templates for this problem after deleting it
 router.delete("/problems/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -963,6 +966,12 @@ router.delete("/problems/:id", async (req, res) => {
       return res
         .status(404)
         .json({ status: "error", message: "Problem not found" });
+
+    // ✦ TEMPLATE DROP — fire after delete, non-blocking
+    dropAllProblemTemplates(id).catch((err) =>
+      console.error(`[templates] Drop failed for problem ${id}:`, err.message),
+    );
+
     res.json({ status: "success" });
   } catch (err) {
     console.error("DELETE /api/admin/problems/:id", err);
@@ -970,7 +979,7 @@ router.delete("/problems/:id", async (req, res) => {
   }
 });
 
-// ─── BADGES ──────────────────────────────────────────────────────────────────
+// ─── BADGES (unchanged) ───────────────────────────────────────────────────────
 
 router.get("/badges", async (req, res) => {
   try {
@@ -1072,9 +1081,8 @@ router.delete("/badges/:id", async (req, res) => {
   }
 });
 
-// ─── TRACK EXAMS ─────────────────────────────────────────────────────────────
+// ─── TRACK EXAMS (unchanged) ──────────────────────────────────────────────────
 
-// GET /api/admin/exams?track_id=N
 router.get("/exams", async (req, res) => {
   const { track_id } = req.query;
   const cond = track_id ? "WHERE te.track_id=$1" : "";
@@ -1097,7 +1105,6 @@ router.get("/exams", async (req, res) => {
   }
 });
 
-// GET /api/admin/exams/:id
 router.get("/exams/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -1108,7 +1115,6 @@ router.get("/exams/:id", async (req, res) => {
       return res
         .status(404)
         .json({ status: "error", message: "Exam not found" });
-
     const qRes = await db.query(
       `SELECT eq.*,
          json_agg(ec ORDER BY ec.choice_order) FILTER (WHERE ec.id IS NOT NULL) AS choices
@@ -1119,7 +1125,6 @@ router.get("/exams/:id", async (req, res) => {
        ORDER BY eq.question_order ASC`,
       [id],
     );
-
     const questions = qRes.rows;
     for (const q of questions) {
       if (q.question_type === "sql" && q.linked_problem_id) {
@@ -1129,7 +1134,6 @@ router.get("/exams/:id", async (req, res) => {
         );
       }
     }
-
     res.json({ status: "success", data: { exam: examRes.rows[0], questions } });
   } catch (err) {
     console.error("GET /api/admin/exams/:id", err);
@@ -1137,7 +1141,6 @@ router.get("/exams/:id", async (req, res) => {
   }
 });
 
-// POST /api/admin/exams
 router.post("/exams", async (req, res) => {
   const {
     track_id,
@@ -1177,7 +1180,6 @@ router.post("/exams", async (req, res) => {
   }
 });
 
-// PATCH /api/admin/exams/:id
 router.patch("/exams/:id", async (req, res) => {
   const id = Number(req.params.id);
   const ALLOWED = [
@@ -1216,7 +1218,6 @@ router.patch("/exams/:id", async (req, res) => {
   }
 });
 
-// POST /api/admin/exams/:examId/questions
 router.post("/exams/:examId/questions", async (req, res) => {
   const examId = Number(req.params.examId);
   const client = await db.connect();
@@ -1240,7 +1241,6 @@ router.post("/exams/:examId/questions", async (req, res) => {
         .json({ status: "error", message: "question_text required" });
     }
 
-    // Verify the exam exists
     const examCheck = await client.query(
       "SELECT id FROM track_exams WHERE id=$1",
       [examId],
@@ -1255,7 +1255,6 @@ router.post("/exams/:examId/questions", async (req, res) => {
     const qType = question_type || "multiple_choice";
     let resolvedLinkedProblemId = linked_problem_id || null;
 
-    // For SQL questions without an explicit linked_problem_id, create an anonymous problem
     if (qType === "sql" && !linked_problem_id && sql_variants) {
       const probRes = await client.query(
         `INSERT INTO problems
@@ -1273,6 +1272,9 @@ router.post("/exams/:examId/questions", async (req, res) => {
         resolvedLinkedProblemId,
         sql_variants,
       );
+
+      // ✦ TEMPLATE SYNC for exam SQL question — non-blocking after commit
+      // (handled below after COMMIT)
     }
 
     const qRes = await client.query(
@@ -1298,7 +1300,6 @@ router.post("/exams/:examId/questions", async (req, res) => {
       }
     }
 
-    // Recalculate total_points
     await client.query(
       `UPDATE track_exams
        SET total_points=(SELECT COALESCE(SUM(points),0) FROM exam_questions WHERE exam_id=$1)
@@ -1307,6 +1308,18 @@ router.post("/exams/:examId/questions", async (req, res) => {
     );
 
     await client.query("COMMIT");
+
+    // ✦ TEMPLATE SYNC for exam SQL question — after commit
+    if (qType === "sql" && resolvedLinkedProblemId && sql_variants?.schema) {
+      syncProblemTemplates(resolvedLinkedProblemId, sql_variants.schema).catch(
+        (err) =>
+          console.error(
+            `[templates] Sync failed for exam question problem ${resolvedLinkedProblemId}:`,
+            err.message,
+          ),
+      );
+    }
+
     res.status(201).json({ status: "success", data: q });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -1317,22 +1330,30 @@ router.post("/exams/:examId/questions", async (req, res) => {
   }
 });
 
-// DELETE /api/admin/questions/:id
 router.delete("/questions/:id", async (req, res) => {
   const id = Number(req.params.id);
   try {
     const qRow = await db.query(
-      "DELETE FROM exam_questions WHERE id=$1 RETURNING exam_id",
+      "DELETE FROM exam_questions WHERE id=$1 RETURNING exam_id, linked_problem_id, question_type",
       [id],
     );
     if (qRow.rows.length) {
-      const examId = qRow.rows[0].exam_id;
+      const { exam_id, linked_problem_id, question_type } = qRow.rows[0];
       await db.query(
         `UPDATE track_exams
          SET total_points=(SELECT COALESCE(SUM(points),0) FROM exam_questions WHERE exam_id=$1)
          WHERE id=$1`,
-        [examId],
+        [exam_id],
       );
+      // ✦ TEMPLATE DROP for exam SQL question's anonymous problem
+      if (question_type === "sql" && linked_problem_id) {
+        dropAllProblemTemplates(linked_problem_id).catch((err) =>
+          console.error(
+            `[templates] Drop failed for exam question problem ${linked_problem_id}:`,
+            err.message,
+          ),
+        );
+      }
     }
     res.json({ status: "success" });
   } catch (err) {
@@ -1341,7 +1362,6 @@ router.delete("/questions/:id", async (req, res) => {
   }
 });
 
-// GET /api/admin/dialects
 router.get("/dialects", (_req, res) => {
   res.json({ status: "success", data: SUPPORTED_DIALECTS });
 });
