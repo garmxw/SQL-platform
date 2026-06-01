@@ -14,10 +14,9 @@ import { db } from "#shared/config/db.js";
 
 const router = Router();
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /stats
 // High-level KPI cards: users, submissions, content, badges, certificates
-// ─────────────────────────────────────────────────────────────────────────────
+
 router.get("/stats", async (req, res) => {
   try {
     const [
@@ -92,23 +91,39 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /user-growth?months=6
 // Monthly new-user registrations for the area chart
-// ─────────────────────────────────────────────────────────────────────────────
+
 router.get("/user-growth", async (req, res) => {
   try {
     const months = Math.min(parseInt(req.query.months, 10) || 6, 24);
 
+    // Generate every month in the range so months with 0 signups still appear
+    // as points — this is what makes the area chart render properly.
+    // Also returns cumulative total so the line always rises (more useful for admin).
     const result = await db.query(
-      `SELECT
-         TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS month,
-         DATE_TRUNC('month', created_at)                      AS month_date,
-         COUNT(*)                                             AS new_users
-       FROM users
-       WHERE created_at >= NOW() - ($1 || ' months')::INTERVAL
-       GROUP BY month_date, month
-       ORDER BY month_date ASC`,
+      `WITH month_series AS (
+         SELECT generate_series(
+           DATE_TRUNC('month', NOW() - ($1 * INTERVAL '1 month')),
+           DATE_TRUNC('month', NOW()),
+           INTERVAL '1 month'
+         ) AS month_date
+       ),
+       monthly_new AS (
+         SELECT
+           DATE_TRUNC('month', created_at) AS month_date,
+           COUNT(*)::int                   AS new_users
+         FROM users
+         GROUP BY 1
+       )
+       SELECT
+         TO_CHAR(ms.month_date, 'Mon YYYY')            AS month,
+         COALESCE(mn.new_users, 0)                     AS new_users,
+         SUM(COALESCE(mn.new_users, 0))
+           OVER (ORDER BY ms.month_date)::int           AS cumulative_users
+       FROM month_series ms
+       LEFT JOIN monthly_new mn ON mn.month_date = ms.month_date
+       ORDER BY ms.month_date ASC`,
       [months],
     );
 
@@ -116,6 +131,7 @@ router.get("/user-growth", async (req, res) => {
       result.rows.map((r) => ({
         month: r.month,
         newUsers: parseInt(r.new_users, 10),
+        cumulativeUsers: parseInt(r.cumulative_users, 10),
       })),
     );
   } catch (err) {
@@ -124,25 +140,38 @@ router.get("/user-growth", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /submission-activity?months=6
 // Monthly correct vs incorrect submissions for the bar chart
-// ─────────────────────────────────────────────────────────────────────────────
+
 router.get("/submission-activity", async (req, res) => {
   try {
     const months = Math.min(parseInt(req.query.months, 10) || 6, 24);
 
     const result = await db.query(
-      `SELECT
-         TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS month,
-         DATE_TRUNC('month', created_at)                      AS month_date,
-         COUNT(*) FILTER (WHERE is_correct = true)            AS correct,
-         COUNT(*) FILTER (WHERE is_correct = false)           AS incorrect,
-         COUNT(*)                                             AS total
-       FROM submissions
-       WHERE created_at >= NOW() - ($1 || ' months')::INTERVAL
-       GROUP BY month_date, month
-       ORDER BY month_date ASC`,
+      `WITH month_series AS (
+         SELECT generate_series(
+           DATE_TRUNC('month', NOW() - ($1 * INTERVAL '1 month')),
+           DATE_TRUNC('month', NOW()),
+           INTERVAL '1 month'
+         ) AS month_date
+       ),
+       monthly_subs AS (
+         SELECT
+           DATE_TRUNC('month', created_at)                   AS month_date,
+           COUNT(*) FILTER (WHERE is_correct = true)::int    AS correct,
+           COUNT(*) FILTER (WHERE is_correct = false)::int   AS incorrect,
+           COUNT(*)::int                                     AS total
+         FROM submissions
+         GROUP BY 1
+       )
+       SELECT
+         TO_CHAR(ms.month_date, 'Mon YYYY') AS month,
+         COALESCE(s.correct,   0)           AS correct,
+         COALESCE(s.incorrect, 0)           AS incorrect,
+         COALESCE(s.total,     0)           AS total
+       FROM month_series ms
+       LEFT JOIN monthly_subs s ON s.month_date = ms.month_date
+       ORDER BY ms.month_date ASC`,
       [months],
     );
 
@@ -160,10 +189,9 @@ router.get("/submission-activity", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /difficulty-distribution
 // Published problem count grouped by difficulty for the pie chart
-// ─────────────────────────────────────────────────────────────────────────────
+
 router.get("/difficulty-distribution", async (req, res) => {
   try {
     const result = await db.query(
@@ -188,10 +216,9 @@ router.get("/difficulty-distribution", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /top-problems?limit=5
 // Most attempted published problems
-// ─────────────────────────────────────────────────────────────────────────────
+
 router.get("/top-problems", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 5, 20);
@@ -232,10 +259,9 @@ router.get("/top-problems", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /recent-users?limit=5
 // Latest registered users
-// ─────────────────────────────────────────────────────────────────────────────
+
 router.get("/recent-users", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 5, 50);
@@ -271,10 +297,9 @@ router.get("/recent-users", async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET /track-completion
 // Per-track enrolled vs completed counts + completion rate
-// ─────────────────────────────────────────────────────────────────────────────
+
 router.get("/track-completion", async (req, res) => {
   try {
     const result = await db.query(

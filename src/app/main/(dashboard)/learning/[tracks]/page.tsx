@@ -60,11 +60,16 @@ import {
   Flame,
   BarChart3,
   Sparkles,
+  ClipboardList,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
-// ===================== MAGIC UI COMPONENTS =====================
+//  MAGIC UI COMPONENTS
+
 function ScrollProgress() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -146,18 +151,15 @@ function NumberTicker({ value, delay = 0, className }: any) {
   const motionVal = useMotionValue(0);
   const spring = useSpring(motionVal, { damping: 60, stiffness: 100 });
   const isInView = useInView(ref, { once: true });
-
   useEffect(() => {
     if (isInView) setTimeout(() => motionVal.set(value), delay * 1000);
   }, [isInView, delay, motionVal, value]);
-
   useEffect(() => {
     const unsubscribe = spring.on("change", (v) => {
       if (ref.current) ref.current.textContent = String(Math.round(v));
     });
-    return unsubscribe; // cleanup to prevent memory leak
+    return unsubscribe;
   }, [spring]);
-
   return (
     <span ref={ref} className={cn("tabular-nums", className)}>
       0
@@ -278,7 +280,8 @@ function CompletedBanner() {
   );
 }
 
-// ===================== TYPES =====================
+//  TYPES ──
+
 type ItemStatus = "completed" | "in-progress" | "locked";
 
 interface Problem {
@@ -287,6 +290,7 @@ interface Problem {
   difficulty: "Easy" | "Medium" | "Hard";
   completed: boolean;
 }
+
 interface Lesson {
   id: number;
   title: string;
@@ -299,6 +303,18 @@ interface Lesson {
   whatYouLearn: string[];
   objectives: string[];
 }
+
+// ✦ NEW: exam info attached to each track
+interface TrackExam {
+  id: number;
+  title: string;
+  time_limit_seconds: number;
+  pass_threshold: number;
+  question_count: number;
+  // null = not yet attempted, "passed" | "failed" = has a result
+  status: "not_started" | "passed" | "failed";
+}
+
 interface Track {
   id: number;
   title: string;
@@ -308,9 +324,11 @@ interface Track {
   totalLessons: number;
   lessons: Lesson[];
   unlocked: boolean;
+  exam?: TrackExam | null; // ✦ NEW
 }
 
-// ===================== HELPERS =====================
+//  HELPERS
+
 function computeCompletion(track: Track) {
   let total = 0,
     done = 0;
@@ -330,6 +348,11 @@ function getIcon(difficulty: string) {
   if (d === "beginner") return Bookmark;
   if (d === "intermediate") return Layers;
   return Code2;
+}
+
+// ✦ Build the editor URL — single source of truth for all navigation
+function editorUrl(type: "lesson" | "problem" | "exam", id: number) {
+  return `/learning/tracks/lessons?type=${type}&id=${id}`;
 }
 
 function DifficultyBadge({
@@ -364,15 +387,19 @@ function TagBadge({ tag }: { tag: Track["tag"] }) {
   );
 }
 
-// ===================== LESSON DIALOG =====================
+//  LESSON DIALOG
+// ✦ CHANGE: receives router.push as onNavigate so the button navigates correctly
+
 function LessonDialog({
   lesson,
   open,
   onClose,
+  onNavigate,
 }: {
   lesson: Lesson | null;
   open: boolean;
   onClose: () => void;
+  onNavigate: (url: string) => void;
 }) {
   if (!lesson) return null;
   const isLocked = lesson.status === "locked";
@@ -381,6 +408,17 @@ function LessonDialog({
     : lesson.status === "in-progress"
       ? 50
       : 0;
+
+  function handleStart() {
+    onClose();
+    onNavigate(editorUrl("lesson", lesson!.id));
+  }
+
+  function handleProblem() {
+    if (!lesson!.problem) return;
+    onClose();
+    onNavigate(editorUrl("problem", lesson!.problem.id));
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -484,10 +522,14 @@ function LessonDialog({
                   <FileText className="w-4 h-4" />
                   Practice Problem
                 </p>
-                <div
+                {/* ✦ CHANGE: problem row is now a clickable button that navigates */}
+                <button
+                  onClick={handleProblem}
                   className={cn(
-                    "flex items-center justify-between rounded-md border border-border px-4 py-3",
-                    lesson.problem.completed ? "bg-muted/40" : "bg-background",
+                    "w-full flex items-center justify-between rounded-md border border-border px-4 py-3 text-left transition-colors",
+                    lesson.problem.completed
+                      ? "bg-muted/40 cursor-default"
+                      : "bg-background hover:bg-muted/40 cursor-pointer",
                   )}
                 >
                   <div className="flex items-center gap-2.5">
@@ -501,8 +543,13 @@ function LessonDialog({
                     )}
                     <span className="text-sm">{lesson.problem.title}</span>
                   </div>
-                  <DifficultyBadge difficulty={lesson.problem.difficulty} />
-                </div>
+                  <div className="flex items-center gap-2">
+                    <DifficultyBadge difficulty={lesson.problem.difficulty} />
+                    {!lesson.problem.completed && (
+                      <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                    )}
+                  </div>
+                </button>
               </div>
             </>
           )}
@@ -517,8 +564,9 @@ function LessonDialog({
           >
             Close
           </Button>
+          {/* ✦ CHANGE: button now navigates to the editor page */}
           {!isLocked && (
-            <InteractiveHoverButton onClick={onClose}>
+            <InteractiveHoverButton onClick={handleStart}>
               <PlayCircle className="w-4 h-4" />
               {lesson.completed
                 ? "Review lesson"
@@ -533,7 +581,126 @@ function LessonDialog({
   );
 }
 
-// ===================== LESSON ROW & TRACK CARD =====================
+//  EXAM ROW ──
+// ✦ NEW component: renders at the bottom of each track's lesson list
+
+function ExamRow({
+  exam,
+  trackCompleted,
+  index,
+  onNavigate,
+}: {
+  exam: TrackExam;
+  trackCompleted: boolean;
+  index: number;
+  onNavigate: (url: string) => void;
+}) {
+  // Exam is only accessible once all lessons in the track are completed
+  const isLocked = !trackCompleted;
+  const mm = Math.floor(exam.time_limit_seconds / 60);
+
+  const statusIcon =
+    exam.status === "passed" ? (
+      <CheckCircle2 className="w-[18px] h-[18px] shrink-0 text-emerald-500" />
+    ) : exam.status === "failed" ? (
+      <XCircle className="w-[18px] h-[18px] shrink-0 text-rose-500" />
+    ) : isLocked ? (
+      <Lock className="w-[18px] h-[18px] shrink-0 text-muted-foreground/30" />
+    ) : (
+      <AlertCircle className="w-[18px] h-[18px] shrink-0 text-amber-500" />
+    );
+
+  return (
+    <BlurFade delay={0.04 * index} inView>
+      {/* Connector line above to visually chain after lessons */}
+      <div className="flex items-center gap-3 px-4 py-1">
+        <div className="ml-[9px] w-px h-4 bg-border/60" />
+        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+          Track Exam
+        </span>
+      </div>
+
+      <button
+        onClick={() => !isLocked && onNavigate(editorUrl("exam", exam.id))}
+        className={cn(
+          "group w-full flex items-start gap-4 rounded-lg px-4 py-3.5 text-left transition-colors border border-dashed border-border mx-0",
+          isLocked
+            ? "opacity-45 cursor-not-allowed"
+            : "hover:bg-amber-500/5 hover:border-amber-500/40 cursor-pointer",
+        )}
+      >
+        <div className="mt-0.5">{statusIcon}</div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={cn(
+                "text-sm font-medium",
+                isLocked && "text-muted-foreground",
+              )}
+            >
+              {exam.title}
+            </span>
+            <Badge
+              variant="outline"
+              className="text-xs gap-1 px-1.5 py-0 border-amber-500/40 text-amber-600 dark:text-amber-400"
+            >
+              <ClipboardList className="w-3 h-3" />
+              Exam
+            </Badge>
+            {isLocked && (
+              <Lock className="w-3.5 h-3.5 text-muted-foreground/40" />
+            )}
+            {exam.status === "passed" && (
+              <Badge
+                variant="outline"
+                className="text-xs gap-1 px-1.5 py-0 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+              >
+                Passed
+              </Badge>
+            )}
+            {exam.status === "failed" && (
+              <Badge
+                variant="outline"
+                className="text-xs gap-1 px-1.5 py-0 border-rose-500/40 text-rose-600 dark:text-rose-400"
+              >
+                Failed — retry
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {mm}m
+            </span>
+            <span className="flex items-center gap-1">
+              <ClipboardList className="w-3 h-3" />
+              {exam.question_count} questions
+            </span>
+            <span className="flex items-center gap-1">
+              <Target className="w-3 h-3" />
+              Pass at {exam.pass_threshold}%
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 mt-0.5">
+          <ChevronRight
+            className={cn(
+              "w-4 h-4 text-muted-foreground transition-all duration-200",
+              isLocked
+                ? "opacity-0"
+                : "opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5",
+            )}
+          />
+        </div>
+      </button>
+    </BlurFade>
+  );
+}
+
+//  LESSON ROW
+
 function StatusIcon({
   status,
   completed,
@@ -647,23 +814,44 @@ function LessonRow({
   );
 }
 
+//  TRACK CARD
+
 function TrackCard({
   track,
   index,
   onLessonOpen,
+  onNavigate,
 }: {
   track: Track;
   index: number;
   onLessonOpen: (l: Lesson) => void;
+  onNavigate: (url: string) => void; // ✦ NEW
 }) {
-  const [open, setOpen] = useState(index === 0); // First track always starts open
+  const [open, setOpen] = useState(index === 0);
   const completion = computeCompletion(track);
   const completedLessons = track.lessons.filter((l) => l.completed).length;
   const isCompleted = completion === 100;
   const Icon = track.icon;
-
-  // First track is ALWAYS unlocked
   const isTrackLocked = index > 0 && !track.unlocked;
+
+  // ✦ Find the first incomplete item to determine "Continue" target
+  function getContinueUrl(): string {
+    // First unfinished lesson
+    const nextLesson = track.lessons.find(
+      (l) => !l.completed && l.status !== "locked",
+    );
+    if (nextLesson) return editorUrl("lesson", nextLesson.id);
+    // First unfinished problem
+    const nextProblem = track.lessons.find(
+      (l) => l.problem && !l.problem.completed,
+    );
+    if (nextProblem) return editorUrl("problem", nextProblem.problem!.id);
+    // Exam if available
+    if (track.exam) return editorUrl("exam", track.exam.id);
+    // Fallback to first lesson
+    if (track.lessons[0]) return editorUrl("lesson", track.lessons[0].id);
+    return "/learning/tracks";
+  }
 
   return (
     <BlurFade delay={0.08 + index * 0.09} inView>
@@ -746,6 +934,7 @@ function TrackCard({
                   <CompletedBanner />
                 </div>
               )}
+
               <div className="space-y-0 px-2">
                 {track.lessons.map((lesson, i) => (
                   <LessonRow
@@ -755,10 +944,26 @@ function TrackCard({
                     onOpen={onLessonOpen}
                   />
                 ))}
+
+                {/* ✦ NEW: Exam row rendered after all lessons */}
+                {track.exam && (
+                  <div className="px-2 pt-1">
+                    <ExamRow
+                      exam={track.exam}
+                      trackCompleted={isCompleted}
+                      index={track.lessons.length}
+                      onNavigate={onNavigate}
+                    />
+                  </div>
+                )}
               </div>
+
               {!isCompleted && !isTrackLocked && (
                 <div className="px-5 pt-4">
-                  <InteractiveHoverButton>
+                  {/* ✦ CHANGE: Continue/Start button now navigates to the right place */}
+                  <InteractiveHoverButton
+                    onClick={() => onNavigate(getContinueUrl())}
+                  >
                     <PlayCircle className="w-4 h-4" />
                     {completedLessons > 0 ? "Continue Track" : "Start Track"}
                   </InteractiveHoverButton>
@@ -772,7 +977,8 @@ function TrackCard({
   );
 }
 
-// ===================== SUMMARY STRIP =====================
+//  SUMMARY STRIP
+
 function SummaryStrip({ tracks = [] }: { tracks: Track[] }) {
   const totalLessons = tracks.reduce((s, t) => s + t.totalLessons, 0);
   const doneLessons = tracks.reduce(
@@ -851,8 +1057,10 @@ function SummaryStrip({ tracks = [] }: { tracks: Track[] }) {
   );
 }
 
-// ===================== MAIN PAGE =====================
+//  MAIN PAGE
+
 export default function TracksPage() {
+  const router = useRouter();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -873,6 +1081,11 @@ export default function TracksPage() {
       .catch(() => toast.error("Network error"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Single navigation handler — used everywhere
+  function navigate(url: string) {
+    router.push(url);
+  }
 
   function openLesson(lesson: Lesson) {
     setSelectedLesson(lesson);
@@ -920,6 +1133,7 @@ export default function TracksPage() {
                 track={track}
                 index={i}
                 onLessonOpen={openLesson}
+                onNavigate={navigate} // ✦ pass navigate down
               />
             ))}
           </div>
@@ -938,6 +1152,7 @@ export default function TracksPage() {
           lesson={selectedLesson}
           open={dialogOpen}
           onClose={() => setDialogOpen(false)}
+          onNavigate={navigate} // pass navigate to dialog
         />
       </div>
 

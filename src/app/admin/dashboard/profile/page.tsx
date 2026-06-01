@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  useId,
+} from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +68,41 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DotPattern — shared background component (uses useId for unique SVG pattern ids)
+// ─────────────────────────────────────────────────────────────────────────────
+function DotPattern({
+  width = 16,
+  height = 16,
+  cx = 1,
+  cy = 1,
+  cr = 1,
+  className,
+}: any) {
+  const id = useId();
+  return (
+    <svg
+      aria-hidden="true"
+      className={cn(
+        "pointer-events-none absolute inset-0 h-full w-full",
+        className,
+      )}
+    >
+      <defs>
+        <pattern
+          id={id}
+          width={width}
+          height={height}
+          patternUnits="userSpaceOnUse"
+        >
+          <circle cx={cx} cy={cy} r={cr} />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" strokeWidth={0} fill={`url(#${id})`} />
+    </svg>
+  );
+}
 
 // Helper: initials from display name
 function getInitials(name: string): string {
@@ -472,7 +514,7 @@ function renderMarkdown(md: string): string {
   return `<p class="text-sm leading-relaxed text-foreground/90">${h}</p>`;
 }
 
-// Auto-grow textarea that expands vertically instead of scrolling
+// Auto-grow textarea
 function AutoGrowTextarea({
   value,
   onChange,
@@ -512,7 +554,7 @@ function AutoGrowTextarea({
   );
 }
 
-// Profile data shape — matches what get-ProfileData returns
+// Profile data shape
 interface ProfileData {
   username: string;
   displayName: string;
@@ -541,7 +583,7 @@ const FIELD_MAP: Array<{ formKey: keyof ProfileData; dbKey: string }> = [
   { formKey: "profileReadme", dbKey: "profile_readme" },
 ];
 
-// Edit profile dialog — identical to user version (shared functionality)
+// Edit profile dialog
 function EditProfileDialog({
   open,
   onOpenChange,
@@ -955,7 +997,7 @@ function EditProfileDialog({
                 </div>
                 {readmeTab === "edit" ? (
                   <textarea
-                    className="flex-1 w-full rounded-md border border-input bg-transparent px-3 py-2.5 text-xs  shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none overflow-y-auto leading-relaxed"
+                    className="flex-1 w-full rounded-md border border-input bg-transparent px-3 py-2.5 text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none overflow-y-auto"
                     value={form.profileReadme}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, profileReadme: e.target.value }))
@@ -1001,7 +1043,7 @@ function EditProfileDialog({
   );
 }
 
-// Platform stats pulled from GET /api/admin/stats
+// Platform stats
 interface PlatformStatsData {
   total_users: number;
   new_users_week: number;
@@ -1092,7 +1134,7 @@ function PlatformStats({
   );
 }
 
-// Activity event type returned by GET /api/admin/activity
+// Activity feed
 interface ActivityEvent {
   kind: string;
   text: string;
@@ -1189,8 +1231,7 @@ function ActivityFeed({
   );
 }
 
-// Quick actions — links to other admin sections
-// disabled ones are placeholders for pages not built yet
+// Quick actions
 const quickActions = [
   {
     label: "Manage Users",
@@ -1274,8 +1315,7 @@ function QuickActions() {
   );
 }
 
-// System status — placeholder health indicators
-// Wire to a real health endpoint when available
+// System status
 const systemChecks = [
   { label: "API", ok: true },
   { label: "Database", ok: true },
@@ -1323,7 +1363,7 @@ function SystemStatus() {
   );
 }
 
-// Admin notes scratchpad — persists via GET/PATCH /api/admin/notes
+// Admin notes scratchpad
 function AdminNotes() {
   const [notes, setNotes] = useState("");
   const [editing, setEditing] = useState(false);
@@ -1392,7 +1432,7 @@ function AdminNotes() {
         {editing ? (
           <textarea
             ref={ref}
-            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs  leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs leading-relaxed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
             rows={6}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -1421,7 +1461,9 @@ function AdminNotes() {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 // Main admin profile page
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AdminProfile() {
   const [editOpen, setEditOpen] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -1502,8 +1544,21 @@ export default function AdminProfile() {
     : null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
-      <main className="w-full max-w-4xl mx-auto pb-10">
+    <div className="relative min-h-screen bg-background text-foreground overflow-x-hidden">
+      {/* Dot pattern background — fixed so it covers the full viewport on scroll */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <DotPattern
+          width={22}
+          height={22}
+          cx={1}
+          cy={1}
+          cr={1}
+          className="fill-foreground/[0.055] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_40%,white_30%,transparent_100%)]"
+        />
+      </div>
+
+      {/* Main content sits above the dot layer */}
+      <main className="relative z-10 w-full max-w-4xl mx-auto pb-10">
         <div className="relative w-full h-36 sm:h-44 bg-muted overflow-hidden">
           {profile.bannerUrl ? (
             <img
@@ -1673,11 +1728,17 @@ export default function AdminProfile() {
           </div>
         </div>
 
+        {/* Footer — Vorn wordmark replacing the old plain text footer */}
         <div className="px-4 sm:px-6">
           <Separator className="my-8" />
-          <p className="text-center text-[11px] text-muted-foreground pb-4">
-            Vorn Admin · built for SQL mastery
-          </p>
+          <div className="mt-8 mb-4 flex flex-col items-center gap-4 select-none">
+            <span className="pointer-events-none bg-gradient-to-b from-black to-gray-300/80 bg-clip-text text-center text-9xl leading-none font-semibold text-transparent dark:from-white dark:to-slate-900/10">
+              Vorn
+            </span>
+            <p className="pl-2 text-sm text-muted-foreground uppercase tracking-wide">
+              built for SQL mastery
+            </p>
+          </div>
         </div>
       </main>
     </div>

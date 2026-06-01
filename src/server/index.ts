@@ -21,6 +21,8 @@ import submitRouter from "./routes/submitRouter.js";
 import userDashboardRouter from "./routes/userProfile.js";
 import leaderboardRouter from "./routes/leaderboardRouter.js";
 import adminDashboardRouter from "./routes/adminDashboardRoute.js";
+import homeRouter from "./routes/homeRoute.js";
+import standaloneProblemRouter from "./routes/problems.js";
 
 dotenv.config();
 
@@ -82,11 +84,13 @@ nextApp.prepare().then(() => {
   server.use("/api/tracks", tracksRouter);
   server.use("/api/lessons", lessonsRouter);
   server.use("/api/problems", problemsRouter);
+  server.use("/api/home", homeRouter);
   server.use("/api/editor", editorRoutes);
   server.use("/api/exam", examRouter);
   server.use("/api/submit", submitRouter);
   server.use("/api/profile/dashboard", userDashboardRouter);
   server.use("/api/leaderboard", leaderboardRouter);
+  server.use("/api/standalone-problems", standaloneProblemRouter);
 
   server.use("/api/admin", adminSubdomainCheck, adminRouter);
   server.use("/api/adminDashboard", adminSubdomainCheck, adminDashboardRouter);

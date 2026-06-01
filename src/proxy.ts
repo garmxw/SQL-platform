@@ -55,7 +55,10 @@ export async function proxy(req: NextRequest) {
   const isProtectedRoute =
     url.pathname.startsWith("/dashboard") ||
     url.pathname.startsWith("/home") ||
-    url.pathname.startsWith("/learning");
+    url.pathname.startsWith("/learning") ||
+    url.pathname.startsWith("/leaderboard") ||
+    url.pathname.startsWith("/profile") ||
+    url.pathname.startsWith("/problems");
 
   if (isProtectedRoute && !token) {
     return NextResponse.redirect(new URL("/login", req.url));

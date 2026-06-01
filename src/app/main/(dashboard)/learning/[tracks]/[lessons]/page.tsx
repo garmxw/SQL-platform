@@ -53,6 +53,7 @@ import {
   type EditorSettings,
   type Dialect,
 } from "@/components/SqlEditor";
+import { SchemaViewer } from "@/components/SchemaViewer";
 import {
   Play,
   Send,
@@ -1369,26 +1370,7 @@ function renderMd(text: string) {
     )
     .replace(/\*(.*?)\*/g, "<em>$1</em>");
 }
-function SchemaViewer({ schemaSql }: { schemaSql: string }) {
-  if (!schemaSql.trim())
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <Database className="w-10 h-10 text-muted-foreground mb-3" />
-        <p className="text-sm font-medium">No schema available</p>
-      </div>
-    );
-  return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex items-center gap-2">
-        <Database className="w-3.5 h-3.5 text-muted-foreground" />
-        <p className="text-xs font-semibold">Schema SQL</p>
-      </div>
-      <pre className="p-4 text-xs leading-6 overflow-x-auto whitespace-pre bg-background">
-        {schemaSql}
-      </pre>
-    </div>
-  );
-}
+
 function LoadingSkeleton() {
   return (
     <div className="flex flex-col h-screen bg-background animate-pulse">
@@ -1657,7 +1639,11 @@ function ExamLayout({
       const resp = await fetch("/api/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ engine: dialect, sql: currentSql }),
+        body: JSON.stringify({
+          engine: dialect,
+          sql: currentSql,
+          problemId: currentProblem?.id ?? null,
+        }),
       });
       const data = await resp.json();
       if (!data.success || data.error) {
@@ -3246,7 +3232,11 @@ export default function LessonEditorPage() {
       const resp = await fetch("/api/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ engine: dialect, sql: currentSql }),
+        body: JSON.stringify({
+          engine: dialect,
+          sql: currentSql,
+          problemId: currentProblem?.id ?? null,
+        }),
       });
       const data = await resp.json();
       if (!data.success || data.error) {
@@ -3290,6 +3280,7 @@ export default function LessonEditorPage() {
             sql: currentSql,
             timed_out: isTimedOut,
             solution_viewed: solutionViewedRef.current,
+            problemId: currentProblem?.id ?? null,
           }),
         });
         const data = await resp.json();

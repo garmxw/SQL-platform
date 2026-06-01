@@ -1,86 +1,168 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
-  Inbox,
-  Home,
-  Calendar,
-  Search,
-  Settings,
+  LayoutDashboard,
+  Users,
+  FileCode2,
   User2,
-  Plus,
-  History,
-  NotebookPen,
-  Projector,
-  ChevronDown,
-  ChevronsUpDown,
+  Home,
+  Trophy,
+  BookOpen,
+  Code2,
+  BadgeCheck,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
 } from "./ui/sidebar";
 import Link from "next/link";
 import Image from "next/image";
 import VornLight from "../../public/vorn_dark.svg";
 import VornDark from "../../public/vorn_light.svg";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "./ui/collapsible";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
-const items = [
-  { title: "Home", url: "/", icon: Home },
-  { title: "Inbox", url: "#", icon: Inbox, badge: "24" }, // ✅ badge in data
-  { title: "Calendar", url: "#", icon: Calendar },
-  { title: "Search", url: "#", icon: Search },
-  { title: "Settings", url: "#", icon: Settings },
+// Shadcn Tooltip
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+
+// Nav configs
+
+const adminNav = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Content", url: "/dashboard/content", icon: FileCode2 },
+  { title: "Users", url: "/dashboard/users", icon: Users },
+  { title: "Profile", url: "/dashboard/profile", icon: User2 },
 ];
 
-// Separate list for Help section — no badges
-const helpItems = items.map(({ badge, ...rest }) => rest);
+const userNav = [
+  { title: "Home", url: "/home", icon: Home },
+  { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
+  { title: "Problems", url: "/learning/problems", icon: Code2 },
+  { title: "Tracks & Lessons", url: "/learning/tracks", icon: BookOpen },
+  { title: "Profile", url: "/profile", icon: User2 },
+];
+
+// Nav item with Tooltip
+
+function NavItem({
+  item,
+  isActive,
+}: {
+  item: { title: string; url: string; icon: React.ElementType };
+  isActive: boolean;
+}) {
+  return (
+    <SidebarMenuItem className="relative">
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive}
+              className={cn("transition-colors", isActive && "font-medium")}
+            >
+              <Link href={item.url}>
+                <item.icon />
+                <span>{item.title}</span>
+              </Link>
+            </SidebarMenuButton>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="center" className="text-xs">
+            {item.title}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      {isActive && (
+        <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+      )}
+    </SidebarMenuItem>
+  );
+}
+
+// Main
 
 function AppSidebar() {
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setIsAdmin(window.location.hostname.startsWith("admin."));
+  }, []);
+
+  if (isAdmin === null) {
+    return (
+      <Sidebar variant="floating" collapsible="icon">
+        <SidebarHeader className="py-4">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild size="lg">
+                <Link href="/">
+                  <Image
+                    src={VornDark}
+                    alt="Vorn"
+                    width={30}
+                    height={30}
+                    className="w-8 h-auto dark:hidden shrink-0"
+                  />
+                  <Image
+                    src={VornLight}
+                    alt="Vorn"
+                    width={30}
+                    height={30}
+                    className="w-8 h-auto hidden dark:block shrink-0"
+                  />
+                  <span className="text-lg font-extrabold tracking-tight">
+                    Vorn
+                  </span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+      </Sidebar>
+    );
+  }
+
+  const navItems = isAdmin ? adminNav : userNav;
+
   return (
     <Sidebar variant="floating" collapsible="icon">
       <SidebarHeader className="py-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link href="/">
+            <SidebarMenuButton asChild size="lg">
+              <Link href={isAdmin ? "/dashboard" : "/home"}>
                 <Image
                   src={VornDark}
-                  alt="Vorn logo"
+                  alt="Vorn"
                   width={30}
                   height={30}
-                  className="w-10 h-auto dark:hidden"
+                  className="w-8 h-auto dark:hidden shrink-0"
                 />
                 <Image
                   src={VornLight}
-                  alt="Vorn logo"
+                  alt="Vorn"
                   width={30}
                   height={30}
-                  className="w-10 h-auto hidden dark:block"
+                  className="w-8 h-auto hidden dark:block shrink-0"
                 />
-                <span className="text-lg font-extrabold inline-block transform scale-x-140 origin-left">
+                <span className="text-lg font-extrabold tracking-tight">
                   Vorn
                 </span>
               </Link>
@@ -90,173 +172,27 @@ function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* ── Application ── */}
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            {isAdmin ? "Admin" : "Navigate"}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                  {item.badge && (
-                    <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
-                  )}
-                </SidebarMenuItem>
+              {navItems.map((item) => (
+                <NavItem
+                  key={item.url}
+                  item={item}
+                  isActive={
+                    item.url === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(item.url)
+                  }
+                />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {/* ── Projects ── */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Projects</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {" "}
-            {/* ✅ was missing */}
-            <SidebarMenu>
-              {" "}
-              {/* ✅ was missing */}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link href="#">
-                    <NotebookPen />
-                    <span>Notes</span>
-                  </Link>
-                </SidebarMenuButton>
-                <SidebarMenuAction>
-                  <Plus />
-                  <span className="sr-only">Add a Note</span>
-                </SidebarMenuAction>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link href="#">
-                    <Projector />
-                    <span>Add a project</span>
-                  </Link>
-                </SidebarMenuButton>
-                <SidebarMenuAction>
-                  <Plus />
-                  <span className="sr-only">Add a Project</span>
-                </SidebarMenuAction>
-              </SidebarMenuItem>
-            </SidebarMenu>{" "}
-            {/* ✅ was missing */}
-          </SidebarGroupContent>{" "}
-          {/* ✅ was missing */}
-        </SidebarGroup>
-
-        {/* ── Help (collapsible) ── */}
-        <Collapsible defaultOpen className="group/collapsible">
-          <SidebarGroup>
-            <SidebarGroupLabel asChild>
-              <CollapsibleTrigger>
-                Help
-                <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
-              </CollapsibleTrigger>
-            </SidebarGroupLabel>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {helpItems.map(
-                    (
-                      item, // ✅ use helpItems — no badges
-                    ) => (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton asChild>
-                          <Link href={item.url}>
-                            <item.icon />
-                            <span>{item.title}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ),
-                  )}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
-
-        {/* ── Nested sidebar ── */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Notes</SidebarGroupLabel>
-          <SidebarGroupContent>
-            {" "}
-            {/* ✅ was missing */}
-            <SidebarMenu>
-              {" "}
-              {/* ✅ was missing */}
-              <Collapsible>
-                {" "}
-                {/* ✅ SubMenu needs Collapsible */}
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton asChild>
-                      <Link href="#">
-                        <NotebookPen />
-                        <span>Notes</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild>
-                          <Link href="#">
-                            <History />
-                            <span>Recent</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link href="#">
-                    <Projector />
-                    <span>Add a project</span>
-                  </Link>
-                </SidebarMenuButton>
-                <SidebarMenuAction>
-                  <Plus />
-                  <span className="sr-only">Add a Project</span>
-                </SidebarMenuAction>
-              </SidebarMenuItem>
-            </SidebarMenu>{" "}
-            {/* ✅ was missing */}
-          </SidebarGroupContent>{" "}
-          {/* ✅ was missing */}
-        </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton>
-                  <User2 /> John kratos <ChevronsUpDown className="ml-auto" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-32" sideOffset={10}>
-                <DropdownMenuItem>Account</DropdownMenuItem>
-                <DropdownMenuItem>Setting</DropdownMenuItem>
-                <DropdownMenuItem variant="destructive">
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
     </Sidebar>
   );
 }

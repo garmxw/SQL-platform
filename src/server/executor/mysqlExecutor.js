@@ -164,7 +164,6 @@ function _mysql(query, db) {
     `-u${MYSQL_USER}`,
     `-p${MYSQL_PASS}`,
     "-B", // batch mode — clean tab-separated output
-    "--silent", // suppress extra noise
   ];
 
   // Only add db arg when targeting a specific database

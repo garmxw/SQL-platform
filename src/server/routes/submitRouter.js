@@ -1,16 +1,6 @@
 /**
  * submitRouter.js — POST /api/submit
- *
- * FIXES:
- *  [1] solution_views: uses ON CONFLICT (user_id, problem_id) column syntax
- *      instead of named constraint (avoids needing ALTER TABLE migration).
- *  [2] Lesson-without-problem returns 404 cleanly.
- *  [3] user_lesson_progress: correctly handles lessons that have problems
- *      (marks completed on first correct solve of the problem).
- *  [4] Always returns new_xp / new_level / xp_delta (even on exec error).
- *  [5] Wrong answer → xp_delta: 0 (never undefined).
- *  [6] applyUserRewards streak only incremented on FIRST correct solve.
- *  [7] req.user.userId used consistently.
+ * ✦ CHANGE: problemId now passed to runCoreExecution for fast-path template cloning
  */
 
 import { Router } from "express";
@@ -21,10 +11,8 @@ import { runCoreExecution } from "#shared/services/sqlDataQueries.js";
 const router = new Router();
 router.use(authenticateToken);
 
-// ─── constants ────────────────────────────────────────────────────────────────
 const TIMEOUT_XP_PENALTY = 50;
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
 function normaliseRows(rows, orderMatters) {
   const norm = (rows ?? []).map((row) => {
     const sorted = {};
@@ -35,10 +23,11 @@ function normaliseRows(rows, orderMatters) {
   return norm.join("|");
 }
 
-async function runUserSql(sql, engine) {
+// ✦ CHANGE: accepts problemId so runCoreExecution can use the pre-built template
+async function runUserSql(sql, engine, problemId = null) {
   const start = Date.now();
   try {
-    const result = await runCoreExecution(sql, engine);
+    const result = await runCoreExecution(sql, engine, "", problemId);
     return {
       rows: result?.rows ?? [],
       columns: result?.columns ?? [],
@@ -55,7 +44,8 @@ async function runUserSql(sql, engine) {
   }
 }
 
-async function checkCorrectness(userRows, problem, engine) {
+// ✦ CHANGE: accepts problemId so solution SQL also uses the pre-built template
+async function checkCorrectness(userRows, problem, engine, problemId = null) {
   const varRes = await db.query(
     `SELECT sql_text, order_matters
      FROM problem_sql_variants
@@ -73,7 +63,8 @@ async function checkCorrectness(userRows, problem, engine) {
   for (const { sql_text, order_matters } of varRes.rows) {
     const om = order_matters ?? orderMatters;
     try {
-      const solResult = await runCoreExecution(sql_text, engine);
+      // ✦ CHANGE: pass problemId so solution also runs in the correct template
+      const solResult = await runCoreExecution(sql_text, engine, "", problemId);
       if (userNorm === normaliseRows(solResult?.rows ?? [], om)) return true;
     } catch {
       /* skip broken reference solution */
@@ -115,7 +106,6 @@ async function applyUserRewards(client, userId, xpDelta, alreadySolved) {
   let newStreak = user.current_streak ?? 0;
   let newLongest = user.longest_streak ?? 0;
 
-  // Only update streak on FIRST correct solve
   if (xpDelta > 0 && !alreadySolved) {
     if (lastDate === null) {
       newStreak = 1;
@@ -125,7 +115,6 @@ async function applyUserRewards(client, userId, xpDelta, alreadySolved) {
       );
       if (diffDays === 1) newStreak += 1;
       else if (diffDays > 1) newStreak = 1;
-      // diffDays === 0 → already solved today, keep streak
     }
     newLongest = Math.max(newLongest, newStreak);
   }
@@ -220,9 +209,7 @@ async function evaluateBadges(
           Math.max(0, accumulatedXp),
         );
         await client.query(
-          `UPDATE users
-           SET xp = GREATEST(0, xp + $1), level = $2
-           WHERE id = $3`,
+          `UPDATE users SET xp = GREATEST(0, xp + $1), level = $2 WHERE id = $3`,
           [badge.xp_reward, recomputedLevel, userId],
         );
       }
@@ -245,6 +232,8 @@ router.post("/", async (req, res) => {
     sql,
     timed_out = false,
     solution_viewed = false,
+    // ✦ CHANGE: read problemId from frontend for fast-path template cloning
+    problemId: clientProblemId = null,
   } = req.body;
 
   if (!type || !["lesson", "problem"].includes(type))
@@ -277,13 +266,9 @@ router.post("/", async (req, res) => {
 
     if (type === "lesson") {
       lessonId = numId;
-      // FIX: A lesson may have no problem (pure reading lesson). Return 404.
       const pRes = await client.query(
-        `SELECT p.*
-         FROM problems p
-         WHERE p.lesson_id = $1
-           AND p.is_standalone = false
-           AND p.is_published = true
+        `SELECT p.* FROM problems p
+         WHERE p.lesson_id = $1 AND p.is_standalone = false AND p.is_published = true
          LIMIT 1`,
         [lessonId],
       );
@@ -296,13 +281,8 @@ router.post("/", async (req, res) => {
       }
       problem = pRes.rows[0];
     } else {
-      // type === "problem"
       const pRes = await client.query(
-        `SELECT *
-         FROM problems
-         WHERE id = $1
-           AND is_standalone = true
-           AND is_published = true`,
+        `SELECT * FROM problems WHERE id = $1 AND is_standalone = true AND is_published = true`,
         [numId],
       );
       if (!pRes.rows.length) {
@@ -314,18 +294,32 @@ router.post("/", async (req, res) => {
       problem = pRes.rows[0];
     }
 
+    // ✦ CHANGE: use server-resolved problem.id as the canonical problemId
+    // (clientProblemId is used as a hint only if it matches, to avoid spoofing)
+    const resolvedProblemId =
+      clientProblemId && Number(clientProblemId) === problem.id
+        ? problem.id
+        : problem.id;
+
     // ── 2. Run user SQL ───────────────────────────────────────────────────────
+    // ✦ CHANGE: pass resolvedProblemId for fast-path template cloning
     const {
       rows: userRows,
       columns,
       executionMs,
       error: execError,
-    } = await runUserSql(sql, engine);
+    } = await runUserSql(sql, engine, resolvedProblemId);
 
     // ── 3. Grade ──────────────────────────────────────────────────────────────
     let isCorrect = false;
     if (!execError && !timed_out) {
-      isCorrect = await checkCorrectness(userRows, problem, engine);
+      // ✦ CHANGE: pass resolvedProblemId so solution SQL also uses the template
+      isCorrect = await checkCorrectness(
+        userRows,
+        problem,
+        engine,
+        resolvedProblemId,
+      );
     }
 
     // ── 4. Record submission ──────────────────────────────────────────────────
@@ -339,11 +333,6 @@ router.post("/", async (req, res) => {
     const submissionId = subRes.rows[0].id;
 
     // ── 5. Record solution view ───────────────────────────────────────────────
-    // FIX: Use (user_id, problem_id) column-list conflict target instead of a
-    // named constraint. This works with or without an explicit UNIQUE constraint
-    // name, as long as the underlying unique index exists.
-    // Run this migration once if needed:
-    //   ALTER TABLE solution_views ADD UNIQUE (user_id, problem_id);
     if (solution_viewed) {
       await client.query(
         `INSERT INTO solution_views (user_id, problem_id, viewed_at)
@@ -356,9 +345,7 @@ router.post("/", async (req, res) => {
 
     // ── 6. Upsert user_problem_state ──────────────────────────────────────────
     const stateRes = await client.query(
-      `SELECT is_solved, attempts
-       FROM user_problem_state
-       WHERE user_id = $1 AND problem_id = $2`,
+      `SELECT is_solved, attempts FROM user_problem_state WHERE user_id = $1 AND problem_id = $2`,
       [userId, problem.id],
     );
     const alreadySolved = stateRes.rows[0]?.is_solved ?? false;
@@ -383,22 +370,17 @@ router.post("/", async (req, res) => {
     }
 
     // ── 7. Mark lesson complete on first correct solve ────────────────────────
-    // FIX: lessonId is set for type=lesson. For type=problem we also check
-    // whether the problem belongs to a lesson (lesson_id FK on problems table).
     let lessonCompleted = false;
     const effectiveLessonId = lessonId ?? problem.lesson_id ?? null;
 
     if (effectiveLessonId && isCorrect && !alreadySolved) {
       const lpRes = await client.query(
-        `SELECT completed
-         FROM user_lesson_progress
-         WHERE user_id = $1 AND lesson_id = $2`,
+        `SELECT completed FROM user_lesson_progress WHERE user_id = $1 AND lesson_id = $2`,
         [userId, effectiveLessonId],
       );
       if (!lpRes.rows.length) {
         await client.query(
-          `INSERT INTO user_lesson_progress
-             (user_id, lesson_id, completed, completed_at, updated_at)
+          `INSERT INTO user_lesson_progress (user_id, lesson_id, completed, completed_at, updated_at)
            VALUES ($1, $2, true, NOW(), NOW())`,
           [userId, effectiveLessonId],
         );
@@ -417,11 +399,8 @@ router.post("/", async (req, res) => {
     // ── 8. Update track progress ──────────────────────────────────────────────
     let trackCompleted = false;
     if (isCorrect && !alreadySolved) {
-      // Resolve the track via the lesson (whether we arrived via lesson or problem)
       const trackIdRes = await client.query(
-        `SELECT l.track_id
-         FROM lessons l
-         WHERE l.id = $1`,
+        `SELECT l.track_id FROM lessons l WHERE l.id = $1`,
         [effectiveLessonId],
       );
       const trackId = trackIdRes.rows[0]?.track_id ?? null;
@@ -430,25 +409,14 @@ router.post("/", async (req, res) => {
         await client.query(
           `INSERT INTO user_track_progress
              (user_id, track_id, completed_problems, total_problems, updated_at)
-           SELECT
-             $1,
-             $2,
-             (
-               SELECT COUNT(*)
-               FROM user_problem_state ups
-               JOIN problems p ON p.id = ups.problem_id
-               JOIN lessons l ON l.id = p.lesson_id
-               WHERE ups.user_id = $1
-                 AND ups.is_solved = true
-                 AND l.track_id = $2
-             ),
-             (
-               SELECT COUNT(*)
-               FROM problems p
-               JOIN lessons l ON l.id = p.lesson_id
-               WHERE p.is_published = true
-                 AND l.track_id = $2
-             ),
+           SELECT $1, $2,
+             (SELECT COUNT(*) FROM user_problem_state ups
+              JOIN problems p ON p.id = ups.problem_id
+              JOIN lessons l ON l.id = p.lesson_id
+              WHERE ups.user_id = $1 AND ups.is_solved = true AND l.track_id = $2),
+             (SELECT COUNT(*) FROM problems p
+              JOIN lessons l ON l.id = p.lesson_id
+              WHERE p.is_published = true AND l.track_id = $2),
              NOW()
            ON CONFLICT (user_id, track_id) DO UPDATE
              SET completed_problems = EXCLUDED.completed_problems,
@@ -458,8 +426,7 @@ router.post("/", async (req, res) => {
         );
 
         const tpRes = await client.query(
-          `SELECT completed_problems, total_problems
-           FROM user_track_progress
+          `SELECT completed_problems, total_problems FROM user_track_progress
            WHERE user_id = $1 AND track_id = $2`,
           [userId, trackId],
         );
@@ -470,9 +437,7 @@ router.post("/", async (req, res) => {
           Number(tp.completed_problems) >= Number(tp.total_problems)
         ) {
           await client.query(
-            `UPDATE user_track_progress
-             SET completed = true
-             WHERE user_id = $1 AND track_id = $2`,
+            `UPDATE user_track_progress SET completed = true WHERE user_id = $1 AND track_id = $2`,
             [userId, trackId],
           );
           trackCompleted = true;
@@ -481,7 +446,6 @@ router.post("/", async (req, res) => {
     }
 
     // ── 9. Compute XP delta ───────────────────────────────────────────────────
-    // xpDelta is always a number; 0 for wrong/already-solved.
     let xpDelta = 0;
     if (timed_out) {
       xpDelta = -TIMEOUT_XP_PENALTY;
@@ -500,12 +464,8 @@ router.post("/", async (req, res) => {
     await client.query(
       `UPDATE problems
        SET acceptance_rate = (
-         SELECT ROUND(
-           (COUNT(*) FILTER (WHERE is_correct) * 100.0) / NULLIF(COUNT(*), 0),
-           2
-         )
-         FROM submissions
-         WHERE problem_id = $1
+         SELECT ROUND((COUNT(*) FILTER (WHERE is_correct) * 100.0) / NULLIF(COUNT(*), 0), 2)
+         FROM submissions WHERE problem_id = $1
        )
        WHERE id = $1`,
       [problem.id],
@@ -545,7 +505,6 @@ router.post("/", async (req, res) => {
         error: execError,
         rows: userRows,
         columns,
-        // Always server-authoritative
         xp_delta: xpDelta,
         new_xp: finalXp,
         new_level: finalLevel,
