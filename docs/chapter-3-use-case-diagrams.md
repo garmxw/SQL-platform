@@ -6,7 +6,7 @@ This section provides four use case diagrams for the SQL Learning Platform in:
 
 ---
 
-## 2.1 Global Use Case Diagram
+## 3.1 Global Use Case Diagram
 
 ### PlantUML
 ```plantuml
@@ -76,7 +76,7 @@ UC_PROGRESS .> UC_BADGES : <<extend>>
 
 ---
 
-## 2.2 Learner Use Case Diagram
+## 3.2 Learner Use Case Diagram
 
 ### PlantUML
 ```plantuml
@@ -138,7 +138,7 @@ LU_XP .> LU_BADGE : <<extend>>
 
 ---
 
-## 2.3 Admin Use Case Diagram
+## 3.3 Admin Use Case Diagram
 
 ### PlantUML
 ```plantuml
@@ -190,7 +190,7 @@ AU_EXAMS .> AU_PROBLEMS : <<extend>>
 
 ---
 
-## 2.4 System Use Case Diagram
+## 3.4 System Use Case Diagram
 
 ### PlantUML
 ```plantuml
@@ -247,4 +247,3 @@ SU_ERRORS .> SU_EXEC : <<extend>>
 **Postconditions**
 - Query execution result is returned to frontend.
 - Submission lifecycle is fully persisted and sandbox resources are cleaned up.
-
