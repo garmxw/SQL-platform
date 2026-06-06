@@ -1,5 +1,6 @@
 "use client";
-
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import React, {
   useState,
   useEffect,
@@ -506,11 +507,9 @@ function TimeoutOverlay({
   );
 }
 
-// FIX: Extracted as a proper named component (not inline) so React.memo on
-// LessonPanel doesn't swallow it when lessonSolved changes.
 function LessonCompletedBanner() {
   return (
-    <div className="mx-5 mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center gap-3">
+    <div className="mx-5 mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 flex items-center gap-3 shrink-0">
       <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
       </div>
@@ -558,7 +557,7 @@ function OutputTable({
                 {cols.map((c) => (
                   <TableCell
                     key={c}
-                    className="text-xs px-3 py-1.5 whitespace-nowrap "
+                    className="text-xs px-3 py-1.5 whitespace-nowrap"
                   >
                     {String(row[c] ?? "")}
                   </TableCell>
@@ -1300,6 +1299,11 @@ function TabsTrigger({
     </button>
   );
 }
+
+// FIX: TabsContent — use display:none instead of conditional render so
+// ScrollArea positions are preserved; also removed `overflow-hidden` here
+// since ScrollArea itself manages overflow. The parent flex chain provides
+// the bounded height.
 function TabsContent({
   value,
   children,
@@ -1310,11 +1314,15 @@ function TabsContent({
   className?: string;
 }) {
   const { active } = React.useContext(TabsCtx);
-  if (active !== value) return null;
   return (
-    <div className={cn("flex-1 overflow-hidden", className)}>{children}</div>
+    <div
+      className={cn("flex-1 min-h-0", active !== value && "hidden", className)}
+    >
+      {children}
+    </div>
   );
 }
+
 function Section({
   children,
   className,
@@ -1325,7 +1333,11 @@ function Section({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-card text-card-foreground overflow-hidden flex flex-col",
+        // overflow-hidden restored: clips children to rounded border and
+        // prevents horizontal bleed. The scrollbar-disappearing bug is fixed
+        // by the flex chain (flex-1 min-h-0 on Tabs + TabsContent), not by
+        // removing overflow-hidden here.
+        "rounded-xl border border-border bg-card text-card-foreground flex flex-col overflow-hidden",
         className,
       )}
     >
@@ -1361,14 +1373,120 @@ function StatusIcon({ status }: { status: string }) {
   if (status === "tle") return <Clock className="w-4 h-4 text-yellow-500" />;
   return null;
 }
-function renderMd(text: string) {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(
-      /`(.*?)`/g,
-      '<code class="bg-muted px-1 py-0.5 rounded text-xs">$1</code>',
-    )
-    .replace(/\*(.*?)\*/g, "<em>$1</em>");
+
+// FIX: Markdown — all block-level elements get `max-w-full` and
+// code/pre blocks get `overflow-x-auto` scoped to themselves so they
+// never cause the page or left panel to grow horizontally.
+function Markdown({ children }: { children: string }) {
+  return (
+    <div className="w-full min-w-0">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ node, ...props }) => (
+            <h1
+              className="text-lg font-bold mt-5 mb-2 text-foreground"
+              {...props}
+            />
+          ),
+          h2: ({ node, ...props }) => (
+            <h2
+              className="text-base font-semibold mt-4 mb-1.5 text-foreground"
+              {...props}
+            />
+          ),
+          h3: ({ node, ...props }) => (
+            <h3
+              className="text-sm font-semibold mt-3 mb-1 text-foreground"
+              {...props}
+            />
+          ),
+          p: ({ node, ...props }) => (
+            <p
+              className="text-sm leading-relaxed text-foreground/90 mb-2 break-words"
+              {...props}
+            />
+          ),
+          ul: ({ node, ...props }) => (
+            <ul
+              className="list-disc pl-5 space-y-1 my-2 text-sm text-foreground/90"
+              {...props}
+            />
+          ),
+          ol: ({ node, ...props }) => (
+            <ol
+              className="list-decimal pl-5 space-y-1 my-2 text-sm text-foreground/90"
+              {...props}
+            />
+          ),
+          li: ({ node, ...props }) => (
+            <li className="leading-relaxed break-words" {...props} />
+          ),
+          // FIX: inline code — no change; block code gets its own scroll container
+          code: ({ node, inline, ...props }: any) =>
+            inline ? (
+              <code
+                className="bg-muted px-1 py-0.5 rounded text-xs font-mono text-foreground break-all"
+                {...props}
+              />
+            ) : (
+              <code
+                className="block bg-muted rounded-md p-3 text-xs font-mono leading-5 whitespace-pre overflow-x-auto my-2 text-foreground max-w-full"
+                {...props}
+              />
+            ),
+          // FIX: pre wrapper — overflow-x-auto scoped here, max-w-full prevents
+          // the element from expanding beyond the panel width.
+          pre: ({ node, ...props }) => (
+            <pre
+              className="not-prose my-2 max-w-full overflow-x-auto rounded-md"
+              {...props}
+            />
+          ),
+          blockquote: ({ node, ...props }) => (
+            <blockquote
+              className="border-l-2 border-border pl-3 my-2 text-muted-foreground italic text-sm"
+              {...props}
+            />
+          ),
+          hr: ({ node, ...props }) => (
+            <hr className="border-border my-4" {...props} />
+          ),
+          strong: ({ node, ...props }) => (
+            <strong className="font-semibold text-foreground" {...props} />
+          ),
+          em: ({ node, ...props }) => <em className="italic" {...props} />,
+          // FIX: table — wrap in a div that scrolls horizontally in isolation
+          // so a wide table doesn't push the panel wider.
+          table: ({ node, ...props }) => (
+            <div className="overflow-x-auto my-3 rounded-md border border-border max-w-full">
+              <table className="w-full text-xs" {...props} />
+            </div>
+          ),
+          thead: ({ node, ...props }) => (
+            <thead className="bg-muted/50" {...props} />
+          ),
+          th: ({ node, ...props }) => (
+            <th
+              className="px-3 py-2 text-left font-semibold text-foreground border-b border-border"
+              {...props}
+            />
+          ),
+          td: ({ node, ...props }) => (
+            <td
+              className="px-3 py-2 border-b border-border/50 text-foreground/80"
+              {...props}
+            />
+          ),
+          tr: ({ node, ...props }) => (
+            <tr className="hover:bg-muted/20 transition-colors" {...props} />
+          ),
+        }}
+      >
+        {children}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 function LoadingSkeleton() {
@@ -1426,7 +1544,7 @@ const EditorPanel = React.memo(function EditorPanel({
   onMarkers,
 }: EditorPanelProps) {
   return (
-    <Section className="h-full">
+    <Section className="h-full overflow-hidden">
       <div className="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">solution.sql</span>
@@ -1498,7 +1616,7 @@ const EditorPanel = React.memo(function EditorPanel({
           </TooltipProvider>
         </div>
       </div>
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-h-0">
         <MonacoEditor
           value={sql}
           onChange={onSqlChange}
@@ -1642,7 +1760,7 @@ function ExamLayout({
         body: JSON.stringify({
           engine: dialect,
           sql: currentSql,
-          problemId: currentProblem?.id ?? null,
+          problemId: currentQ?.linked_problem_id ?? null,
         }),
       });
       const data = await resp.json();
@@ -1720,7 +1838,7 @@ function ExamLayout({
 
   if (examFailed && !submitted) {
     return (
-      <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+      <div className="flex flex-col h-full w-full bg-background text-foreground overflow-hidden">
         <header className="h-14 border-b border-border flex items-center px-4 shrink-0 bg-background gap-3">
           <FlaskConical className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-semibold">{exam.title}</span>
@@ -1772,7 +1890,7 @@ function ExamLayout({
       questionResults = {},
     } = submitResult;
     return (
-      <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+      <div className="flex flex-col h-full w-full bg-background text-foreground overflow-hidden">
         <header className="h-14 border-b border-border flex items-center px-4 shrink-0 bg-background gap-3">
           <FlaskConical className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-semibold">{exam.title}</span>
@@ -1919,7 +2037,7 @@ function ExamLayout({
 
   const unanswered = questions.length - answeredSet.size;
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex flex-col h-full w-full bg-background text-foreground overflow-hidden">
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-sm mx-4 rounded-2xl border border-border bg-background shadow-2xl p-6 space-y-5">
@@ -2056,12 +2174,21 @@ function ExamLayout({
           </Button>
         </div>
       </header>
-      <div className="flex flex-1 overflow-hidden p-2 gap-2">
-        <div className="w-48 shrink-0 flex flex-col gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1">
+
+      {/* ── EXAM BODY ── */}
+      {/* FIX: overflow-hidden on this row so neither child bleeds outside.
+          The sidebar is shrink-0 + overflow-hidden so it holds its w-48 no
+          matter what the content column does. The content column gets
+          flex-1 min-w-0 so it never squeezes the sidebar. */}
+      <div className="flex flex-1 overflow-hidden p-2 gap-2 min-h-0">
+        {/* ── LEFT SIDEBAR: question navigator ── */}
+        {/* FIX: overflow-hidden prevents the ScrollArea from spilling over
+            the content area. min-h-0 lets it shrink vertically. */}
+        <div className="w-48 shrink-0 flex flex-col gap-2 overflow-hidden min-h-0">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground px-1 shrink-0">
             Questions
           </p>
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="flex flex-col gap-1 pr-1">
               {questions.map((q, i) => {
                 const answered = answeredSet.has(q.id);
@@ -2104,10 +2231,16 @@ function ExamLayout({
             </div>
           </ScrollArea>
         </div>
+
+        {/* ── RIGHT: question content + answer area ── */}
+        {/* FIX: min-w-0 is critical — without it this flex child ignores the
+            sidebar's fixed width and overlaps it. overflow-hidden stops any
+            child from escaping this column. */}
         <div
           ref={containerRef}
-          className="flex-1 flex flex-col overflow-hidden gap-2 min-w-0"
+          className="flex-1 flex flex-col overflow-hidden gap-2 min-w-0 min-h-0"
         >
+          {/* Question text — always visible, never scrolls away */}
           <Section className="shrink-0">
             <div className="px-5 py-4">
               <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -2130,72 +2263,78 @@ function ExamLayout({
                     </Badge>
                   )}
               </div>
-              <p
-                className="text-sm leading-relaxed"
-                dangerouslySetInnerHTML={{
-                  __html: renderMd(currentQ?.question_text ?? ""),
-                }}
-              />
+              <div className="text-sm leading-relaxed min-w-0">
+                <Markdown>{currentQ?.question_text ?? ""}</Markdown>
+              </div>
             </div>
           </Section>
+
+          {/* ── MULTIPLE CHOICE ── */}
+          {/* FIX: MC answers go inside a flex-1 ScrollArea so they scroll
+              within the column rather than pushing the nav buttons off-screen
+              or overlapping the sidebar. */}
           {currentQ?.question_type === "multiple_choice" &&
             currentQ.choices && (
-              <Section className="shrink-0">
-                <div className="p-4 space-y-2">
-                  {currentQ.choices
-                    .slice()
-                    .sort((a, b) => a.choice_order - b.choice_order)
-                    .map((c) => {
-                      const isMulti = (correctCountMap[currentQ.id] ?? 1) > 1;
-                      const selected =
-                        mcAnswers.get(currentQ.id)?.has(c.id) ?? false;
-                      return (
-                        <button
-                          key={c.id}
-                          onClick={() =>
-                            toggleChoice(currentQ.id, c.id, isMulti)
-                          }
-                          className={cn(
-                            "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm text-left transition-all",
-                            selected
-                              ? "bg-foreground/[0.08] border-foreground/30"
-                              : "border-border hover:bg-muted/50 hover:border-foreground/20",
-                          )}
-                        >
-                          <span
+              <div className="flex-1 min-h-0 overflow-hidden rounded-xl border border-border bg-card">
+                <ScrollArea className="h-full">
+                  <div className="p-4 space-y-2 pb-10">
+                    {currentQ.choices
+                      .slice()
+                      .sort((a, b) => a.choice_order - b.choice_order)
+                      .map((c) => {
+                        const isMulti = (correctCountMap[currentQ.id] ?? 1) > 1;
+                        const selected =
+                          mcAnswers.get(currentQ.id)?.has(c.id) ?? false;
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() =>
+                              toggleChoice(currentQ.id, c.id, isMulti)
+                            }
                             className={cn(
-                              "shrink-0 flex items-center justify-center border-2 transition-all",
-                              isMulti
-                                ? "w-4 h-4 rounded"
-                                : "w-4 h-4 rounded-full",
+                              "w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-sm text-left transition-all",
                               selected
-                                ? "border-foreground bg-foreground"
-                                : "border-muted-foreground/50",
+                                ? "bg-foreground/[0.08] border-foreground/30"
+                                : "border-border hover:bg-muted/50 hover:border-foreground/20",
                             )}
                           >
-                            {selected && (
-                              <span
-                                className={cn(
-                                  "bg-background",
-                                  isMulti
-                                    ? "w-2 h-2 rounded-sm"
-                                    : "w-2 h-2 rounded-full",
-                                )}
-                              />
-                            )}
-                          </span>
-                          <span className="flex-1">{c.choice_text}</span>
-                        </button>
-                      );
-                    })}
-                  {(correctCountMap[currentQ.id] ?? 1) > 1 && (
-                    <p className="text-[11px] text-muted-foreground pt-1">
-                      Multiple correct answers — select all that apply.
-                    </p>
-                  )}
-                </div>
-              </Section>
+                            <span
+                              className={cn(
+                                "shrink-0 flex items-center justify-center border-2 transition-all",
+                                isMulti
+                                  ? "w-4 h-4 rounded"
+                                  : "w-4 h-4 rounded-full",
+                                selected
+                                  ? "border-foreground bg-foreground"
+                                  : "border-muted-foreground/50",
+                              )}
+                            >
+                              {selected && (
+                                <span
+                                  className={cn(
+                                    "bg-background",
+                                    isMulti
+                                      ? "w-2 h-2 rounded-sm"
+                                      : "w-2 h-2 rounded-full",
+                                  )}
+                                />
+                              )}
+                            </span>
+                            <span className="flex-1">{c.choice_text}</span>
+                          </button>
+                        );
+                      })}
+                    {(correctCountMap[currentQ.id] ?? 1) > 1 && (
+                      <p className="text-[11px] text-muted-foreground pt-1">
+                        Multiple correct answers — select all that apply.
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             )}
+
+          {/* ── SQL ── */}
           {currentQ?.question_type === "sql" && (
             <>
               {currentQ.sql_variants?.schema &&
@@ -2207,7 +2346,7 @@ function ExamLayout({
                       <span className="text-xs font-semibold">Schema</span>
                     </div>
                     <div className="overflow-auto flex-1">
-                      <pre className="px-4 py-3 text-xs leading-5 text-muted-foreground whitespace-pre">
+                      <pre className="px-4 py-3 text-xs leading-5 text-muted-foreground whitespace-pre max-w-full overflow-x-auto">
                         {currentQ.sql_variants.schema[dialect] ||
                           currentQ.sql_variants.schema["universal"]}
                       </pre>
@@ -2240,7 +2379,7 @@ function ExamLayout({
                     direction="vertical"
                   />
                   <div
-                    className="min-h-0 overflow-hidden"
+                    className="min-h-0"
                     style={{ flex: `${100 - editorPct} 0 0` }}
                   >
                     <Section className="h-full">
@@ -2285,7 +2424,7 @@ function ExamLayout({
                           <ChevronDown className="w-3.5 h-3.5" />
                         </Button>
                       </div>
-                      <div className="flex-1 overflow-auto">
+                      <div className="flex-1 overflow-auto min-h-0">
                         <div className="p-3">
                           {result.status === "error" && (
                             <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4">
@@ -2335,7 +2474,9 @@ function ExamLayout({
               )}
             </>
           )}
-          <div className="flex items-center justify-between shrink-0 mt-auto pt-1">
+
+          {/* Prev / Next navigation — always pinned at the bottom */}
+          <div className="flex items-center justify-between shrink-0 pt-1">
             <Button
               variant="outline"
               size="sm"
@@ -2369,8 +2510,6 @@ function ExamLayout({
 }
 
 // ─── LESSON PANEL ─────────────────────────────────────────────────────────────
-// FIX: All mutable state (lessonSolved, hintsShown, solutionShown, submissions)
-// passed as explicit props so React.memo re-renders correctly when they change.
 interface LessonPanelProps {
   lessonSolved: boolean;
   lessonPanelTab: string;
@@ -2420,12 +2559,17 @@ const LessonPanel = React.memo(
     submissions,
   }: LessonPanelProps) {
     return (
-      <Section className="h-full">
+      // FIX: Section gets `overflow-hidden` scoped back for the rounded corners,
+      // but Tabs fills the full height with a proper flex column so the
+      // ScrollArea inside TabsContent gets a concrete bounded height.
+      <Section className="h-full overflow-hidden">
         {lessonSolved && <LessonCompletedBanner />}
+        {/* FIX: Tabs must fill remaining height after the optional banner.
+            Use min-h-0 so the flex child can shrink without overflowing. */}
         <Tabs
           value={lessonPanelTab}
           onValueChange={setLessonPanelTab}
-          className="flex flex-col h-full"
+          className="flex flex-col flex-1 min-h-0"
         >
           <TabsList>
             <TabsTrigger value="description">Description</TabsTrigger>
@@ -2439,9 +2583,12 @@ const LessonPanel = React.memo(
             <TabsTrigger value="submissions">History</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="description" className="flex-1 overflow-hidden">
+          {/* FIX: TabsContent now uses hidden/flex-1/min-h-0 (see component above).
+              ScrollArea with h-full works because the parent TabsContent has a
+              concrete flex-1 min-h-0 height from the Tabs flex column. */}
+          <TabsContent value="description">
             <ScrollArea className="h-full">
-              <div className="p-5 space-y-5">
+              <div className="p-5 space-y-5 pb-10">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap mb-1.5">
                     <h1 className="text-base font-semibold">{titleLabel}</h1>
@@ -2478,26 +2625,17 @@ const LessonPanel = React.memo(
                   </div>
                 </div>
                 <Separator />
-                <div className="text-sm leading-relaxed space-y-2">
-                  {(lesson?.description ?? problem?.description ?? "")
-                    .split("\n\n")
-                    .map((para, i) => (
-                      <p
-                        key={i}
-                        dangerouslySetInnerHTML={{ __html: renderMd(para) }}
-                      />
-                    ))}
+                {/* FIX: Markdown wrapped in min-w-0 to prevent horizontal overflow */}
+                <div className="min-w-0">
+                  <Markdown>
+                    {lesson?.description ?? problem?.description ?? ""}
+                  </Markdown>
                 </div>
                 {lesson?.content && (
                   <>
                     <Separator />
-                    <div className="text-sm leading-relaxed space-y-2">
-                      {lesson.content.split("\n\n").map((para, i) => (
-                        <p
-                          key={i}
-                          dangerouslySetInnerHTML={{ __html: renderMd(para) }}
-                        />
-                      ))}
+                    <div className="min-w-0">
+                      <Markdown>{lesson.content}</Markdown>
                     </div>
                   </>
                 )}
@@ -2525,7 +2663,7 @@ const LessonPanel = React.memo(
                 {similar.length > 0 && (
                   <>
                     <Separator />
-                    <div className="space-y-1 pb-4">
+                    <div className="space-y-1">
                       <p className="text-sm font-semibold mb-3">
                         Similar Problems
                       </p>
@@ -2552,18 +2690,18 @@ const LessonPanel = React.memo(
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="schema" className="flex-1 overflow-hidden">
+          <TabsContent value="schema">
             <ScrollArea className="h-full">
-              <div className="p-5">
+              <div className="p-5 pb-10">
                 <p className="text-sm font-semibold mb-4">Table Schema</p>
                 <SchemaViewer schemaSql={schemaSql} />
               </div>
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="hints" className="flex-1 overflow-hidden">
+          <TabsContent value="hints">
             <ScrollArea className="h-full">
-              <div className="p-5 space-y-3">
+              <div className="p-5 space-y-3 pb-10">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Hints</p>
                   <span className="text-xs text-muted-foreground">
@@ -2609,9 +2747,9 @@ const LessonPanel = React.memo(
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="solution" className="flex-1 overflow-hidden">
+          <TabsContent value="solution">
             <ScrollArea className="h-full">
-              <div className="p-5 space-y-4">
+              <div className="p-5 space-y-4 pb-10">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Solution</p>
                   <span className="text-xs text-muted-foreground">
@@ -2672,7 +2810,9 @@ const LessonPanel = React.memo(
                             Use in editor
                           </Button>
                         </div>
-                        <pre className="p-4 text-xs leading-6 overflow-x-auto whitespace-pre bg-background">
+                        {/* FIX: pre in solution gets max-w-full + overflow-x-auto
+                            so long SQL doesn't push the panel wider */}
+                        <pre className="p-4 text-xs leading-6 overflow-x-auto whitespace-pre bg-background max-w-full">
                           {sql}
                         </pre>
                       </div>
@@ -2688,9 +2828,9 @@ const LessonPanel = React.memo(
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="submissions" className="flex-1 overflow-hidden">
+          <TabsContent value="submissions">
             <ScrollArea className="h-full">
-              <div className="p-5 space-y-3">
+              <div className="p-5 space-y-3 pb-10">
                 <p className="text-sm font-semibold">Submission History</p>
                 {submissions.length === 0 && (
                   <div className="flex flex-col items-center py-10 text-center">
@@ -2749,8 +2889,9 @@ const LessonPanel = React.memo(
                         )}
                       </div>
                       {s.submitted_sql && (
-                        <div className="border-t border-border bg-muted/10 px-4 py-2">
-                          <pre className="text-[10px] text-muted-foreground truncate leading-relaxed">
+                        <div className="border-t border-border bg-muted/10 px-4 py-2 overflow-hidden">
+                          {/* FIX: submission SQL preview — truncated with overflow-x-auto */}
+                          <pre className="text-[10px] text-muted-foreground leading-relaxed overflow-x-auto max-w-full whitespace-pre">
                             {s.submitted_sql.trim().slice(0, 120)}
                             {s.submitted_sql.trim().length > 120 ? "…" : ""}
                           </pre>
@@ -2766,7 +2907,6 @@ const LessonPanel = React.memo(
       </Section>
     );
   },
-  // FIX: custom equality so React.memo re-renders when solved/hints/submissions change
   (prev, next) => {
     return (
       prev.lessonSolved === next.lessonSolved &&
@@ -2796,7 +2936,7 @@ const OutputPanel = React.memo(function OutputPanel({
   onClose,
 }: OutputPanelProps) {
   return (
-    <Section className="h-full">
+    <Section className="h-full overflow-hidden">
       <div className="flex items-center border-b border-border shrink-0 min-h-[42px]">
         <div className="flex items-center px-3 py-2.5 text-xs font-medium border-b-2 border-foreground text-foreground gap-1.5 -mb-px">
           {result.status === "idle" && "Output"}
@@ -2851,7 +2991,7 @@ const OutputPanel = React.memo(function OutputPanel({
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto min-h-0">
         <div className="p-3 space-y-3">
           {result.status === "running" && (
             <div className="space-y-2">
@@ -2937,23 +3077,15 @@ export default function LessonEditorPage() {
     setEditorSettings({ ...DEFAULT_SETTINGS, ...loadSettings() });
   }, []);
 
-  // ── Server-authoritative XP / level ──────────────────────────────────────
-  // NEVER derive these from local logic — always set from server response.
-  // Initialized to null so we know when real data has arrived.
   const [globalXp, setGlobalXp] = useState(0);
   const [globalLevel, setGlobalLevel] = useState(1);
   const [xpLoaded, setXpLoaded] = useState(false);
-
-  // Reward XP for this problem (shown in XPBar, decremented by hints/solution)
   const [maxRewardXp, setMaxRewardXp] = useState(0);
   const [rewardXp, setRewardXp] = useState(0);
-
-  // Animated delta badge
   const [xpDelta, setXpDelta] = useState<number | null>(null);
   const [timeoutPenalty, setTimeoutPenalty] = useState(50);
   const deltaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // FIX: Apply XP/level only from server — the ground truth.
   const applyServerXp = useCallback(
     (newXp: number, newLevel: number, delta: number) => {
       setGlobalXp(newXp);
@@ -2965,8 +3097,6 @@ export default function LessonEditorPage() {
     [],
   );
 
-  // FIX: Optimistic penalty for hint/solution reveal — subtract from rewardXp
-  // only, not globalXp (globalXp is server-authoritative).
   const applyXpDelta = useCallback((delta: number) => {
     setRewardXp((prev) => Math.max(0, prev + delta));
     setXpDelta(delta);
@@ -2975,9 +3105,6 @@ export default function LessonEditorPage() {
   }, []);
 
   const [lessonPanelTab, setLessonPanelTab] = useState("description");
-
-  // FIX: Initialised to null so we don't flash the wrong solved state before
-  // the fetch resolves. null = "not yet known".
   const [lessonSolved, setLessonSolved] = useState<boolean | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const [solutionViewed, setSolutionViewed] = useState(false);
@@ -3001,13 +3128,10 @@ export default function LessonEditorPage() {
     return null;
   }, [content]);
 
-  // ── FETCH ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!contentType || !contentId) return;
     setLoading(true);
     setFetchError(null);
-    // FIX: Reset all state that depends on the fetched content so stale data
-    // from a previous lesson/problem doesn't bleed through.
     setLessonSolved(null);
     setXpLoaded(false);
     setSubmissions([]);
@@ -3026,7 +3150,6 @@ export default function LessonEditorPage() {
         const data: ContentData = json.data;
         setContent(data);
 
-        // ── FIX: Defensively read xp/level — guard against missing userStats ──
         const stats = data.userProgress?.userStats;
         const xp = typeof stats?.xp === "number" ? stats.xp : 0;
         const level = typeof stats?.level === "number" ? stats.level : 1;
@@ -3034,7 +3157,6 @@ export default function LessonEditorPage() {
         setGlobalLevel(level);
         setXpLoaded(true);
 
-        // ── Reward XP cap ──────────────────────────────────────────────────
         let maxXp = 0;
         if (data.type === "lesson" && data.problem)
           maxXp = data.problem.xp_reward ?? 0;
@@ -3042,10 +3164,7 @@ export default function LessonEditorPage() {
         setMaxRewardXp(maxXp);
         setRewardXp(maxXp);
 
-        // ── FIX: Read solved state from server — never guess ───────────────
         if (data.type === "lesson") {
-          // Lesson with no problem: completed = user_lesson_progress.completed
-          // Lesson with problem: is_solved = user_problem_state.is_solved
           if (data.problem) {
             setLessonSolved(data.userProgress.is_solved ?? false);
           } else {
@@ -3055,10 +3174,8 @@ export default function LessonEditorPage() {
           setLessonSolved(data.userProgress.is_solved ?? false);
         }
 
-        // ── Submissions list ───────────────────────────────────────────────
         setSubmissions(data.userProgress.submissions ?? []);
 
-        // ── SQL starters ───────────────────────────────────────────────────
         const sqls: Record<string, string> = {};
         for (const d of ALL_DIALECTS) {
           let sql = "";
@@ -3086,7 +3203,6 @@ export default function LessonEditorPage() {
         }
         setSqlByDialect(sqls);
 
-        // ── Timer setup ────────────────────────────────────────────────────
         const limit =
           data.type === "problem"
             ? data.problem.time_limit_seconds
@@ -3103,7 +3219,6 @@ export default function LessonEditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentType, contentId]);
 
-  // ── Refs to avoid stale closures in callbacks ───────────────────────────
   const timedOutRef = useRef(timedOut);
   useEffect(() => {
     timedOutRef.current = timedOut;
@@ -3114,7 +3229,6 @@ export default function LessonEditorPage() {
     solutionViewedRef.current = solutionViewed;
   }, [solutionViewed]);
 
-  // ── DERIVED ────────────────────────────────────────────────────────────────
   const currentSql = sqlByDialect[dialect] ?? "";
 
   const availableDialects = useMemo(() => {
@@ -3201,19 +3315,11 @@ export default function LessonEditorPage() {
   }, [content, dialect]);
 
   const hasProblem = !!currentProblem;
-
-  // FIX: Only show Submit when:
-  //  - there IS a problem attached
-  //  - solved state is definitively known (not null = loading)
-  //  - the problem is NOT yet solved
   const showSubmitButton =
     hasProblem && lessonSolved !== null && lessonSolved === false;
-
-  // FIX: Only show "Solved" badge when definitively solved
   const showSolvedBadge =
     hasProblem && lessonSolved !== null && lessonSolved === true;
 
-  // ── HANDLERS ────────────────────────────────────────────────────────────────
   const handleSqlChange = useCallback(
     (val: string) => {
       setSqlByDialect((prev) => ({ ...prev, [dialect]: val }));
@@ -3300,7 +3406,6 @@ export default function LessonEditorPage() {
           error: d.error ?? undefined,
         });
 
-        // FIX: Always sync XP/level from server — never compute locally
         applyServerXp(d.new_xp, d.new_level, d.xp_delta);
 
         if (isTimedOut) {
@@ -3310,9 +3415,6 @@ export default function LessonEditorPage() {
 
         if (d.is_correct) {
           fireSideCannons();
-          // FIX: Only mark solved if server confirms it (is_correct && not
-          // already_solved before this submit). But even if already_solved
-          // the state should stay true.
           setLessonSolved(true);
           setSubmissions((prev) => [
             {
@@ -3345,7 +3447,6 @@ export default function LessonEditorPage() {
     [contentType, contentId, dialect, currentSql, applyServerXp],
   );
 
-  // Auto-submit on timer expiry
   useEffect(() => {
     if (!timer.mounted || timer.state.mode !== "countdown" || !timer.active)
       return;
@@ -3398,7 +3499,6 @@ export default function LessonEditorPage() {
   const errorCount = markers.filter((m) => m.severity === 8).length;
   const warnCount = markers.filter((m) => m.severity === 4).length;
 
-  // ── EARLY RETURNS ──────────────────────────────────────────────────────────
   if (loading) return <LoadingSkeleton />;
   if (fetchError) return <ErrorState message={fetchError} />;
   if (!content) return <ErrorState message="No content found." />;
@@ -3426,9 +3526,8 @@ export default function LessonEditorPage() {
     ? `${lesson.id}. ${lesson.title}`
     : `${problem?.id}. ${problem?.title}`;
 
-  // ── RENDER ──────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden max-w-full">
       {showWrong && <WrongOverlay onDone={() => setShowWrong(false)} />}
       {showTimeout && (
         <TimeoutOverlay
@@ -3438,8 +3537,8 @@ export default function LessonEditorPage() {
       )}
 
       {/* ── NAVBAR ── */}
-      <header className="h-12 border-b border-border flex items-center px-3 shrink-0 bg-background z-20 gap-2">
-        <div className="flex items-center gap-1.5 shrink-0">
+      <header className="h-12 border-b border-border flex items-center px-3 shrink-0 bg-background z-20 gap-2 overflow-hidden min-w-0">
+        <div className="flex items-center gap-1.5 shrink-0 min-w-0">
           <TooltipProvider delayDuration={300}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -3644,7 +3743,6 @@ export default function LessonEditorPage() {
             )}
             <span className="hidden sm:inline">Run</span>
           </Button>
-          {/* FIX: Only render Submit when problem exists AND definitively not solved */}
           {showSubmitButton && (
             <Button
               size="sm"
@@ -3656,7 +3754,6 @@ export default function LessonEditorPage() {
               <span className="hidden sm:inline">Submit</span>
             </Button>
           )}
-          {/* FIX: Solved badge — only when definitively solved */}
           {showSolvedBadge && (
             <div className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -3685,14 +3782,20 @@ export default function LessonEditorPage() {
       </div>
 
       {/* Desktop layout */}
+      {/* FIX: desktop container — `overflow-hidden` is key here so the two flex
+          children (left panel + editor) don't bleed outside the viewport.
+          The left panel wrapper gets `min-h-0` so it can shrink in the flex
+          column without causing the page to grow vertically. */}
       <div
         ref={containerRef}
-        className="hidden md:flex flex-1 overflow-hidden p-2 gap-0"
+        className="hidden md:flex flex-1 overflow-hidden p-2 gap-0 min-h-0 min-w-0"
       >
         {leftOpen && (
           <>
+            {/* FIX: left panel wrapper — `min-h-0 overflow-hidden` ensures it
+                stays inside the flex row and doesn't push page height. */}
             <div
-              className="shrink-0 overflow-hidden"
+              className="shrink-0 overflow-hidden min-h-0"
               style={{ width: `${leftPct}%` }}
             >
               <LessonPanel
@@ -3722,8 +3825,8 @@ export default function LessonEditorPage() {
             <DraggableDivider onDrag={handleHorizDrag} direction="horizontal" />
           </>
         )}
-        <div className="flex flex-1 overflow-hidden min-w-0 gap-0">
-          <div className="flex flex-col flex-1 overflow-hidden min-w-0 gap-2">
+        <div className="flex flex-1 overflow-hidden min-w-0 min-h-0 gap-0">
+          <div className="flex flex-col flex-1 overflow-hidden min-w-0 min-h-0 gap-2">
             <div
               className="overflow-hidden min-h-0"
               style={{ flex: outputOpen ? `${editorPct} 0 0` : "1 0 0" }}
@@ -3765,10 +3868,10 @@ export default function LessonEditorPage() {
                 direction="horizontal"
               />
               <div
-                className="shrink-0 overflow-hidden min-w-0"
+                className="shrink-0 overflow-hidden min-w-0 min-h-0"
                 style={{ width: `${notesPct}%` }}
               >
-                <Section className="h-full">
+                <Section className="h-full overflow-hidden">
                   <div className="h-10 border-b border-border flex items-center justify-between px-3 shrink-0">
                     <span className="text-sm font-medium flex items-center gap-2">
                       <PenLine className="w-4 h-4" />
@@ -3794,7 +3897,7 @@ export default function LessonEditorPage() {
       </div>
 
       {/* Mobile content */}
-      <div className="md:hidden flex-1 overflow-hidden p-2">
+      <div className="md:hidden flex-1 overflow-hidden p-2 min-h-0">
         {mobileTab === "lesson" && (
           <div className="h-full">
             <LessonPanel
@@ -3847,8 +3950,8 @@ export default function LessonEditorPage() {
         )}
         {mobileTab === "notes" && (
           <div className="h-full">
-            <Section className="h-full">
-              <div className="h-10 border-b border-border flex items-center px-3">
+            <Section className="h-full overflow-hidden">
+              <div className="h-10 border-b border-border flex items-center px-3 shrink-0">
                 <span className="text-sm font-medium">Notes</span>
               </div>
               <div className="flex-1 overflow-hidden min-h-0">
@@ -3860,7 +3963,7 @@ export default function LessonEditorPage() {
       </div>
 
       {/* Status bar */}
-      <div className="h-6 border-t border-border flex items-center justify-between px-3 shrink-0 bg-background text-[11px] text-muted-foreground">
+      <div className="h-6 border-t border-border flex items-center justify-between px-3 shrink-0 bg-background text-[11px] text-muted-foreground overflow-hidden min-w-0">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1">
             {lesson && <BookOpen className="w-3 h-3" />}
